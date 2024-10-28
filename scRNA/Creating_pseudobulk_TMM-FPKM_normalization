@@ -1,0 +1,88 @@
+library(Seurat)
+
+# Creating pseudobulk
+
+cts <- AggregateExpression(seurat, 
+                    group.by = c("orig.ident"),
+                   # assays = 'originalexp',
+                    slot = "counts",
+                    return.seurat = FALSE)
+
+cts.t <- as.data.frame(cts)
+
+write.table(cts.t, "pseudobulk.tsv", sep = "\t")
+
+# TMM-FPKM normalization
+
+
+library(DESeq2)
+library(vsn)
+library(edgeR)
+library(biomaRt)
+library(clusterProfiler)
+library(enrichplot)
+library(ggplot2)
+library(rWikiPathways)
+library(TxDb.Hsapiens.UCSC.hg38.knownGene)
+library(tidyverse)
+library(edgeR)
+library(RCurl)
+library(GSA)
+library(Glimma)
+
+# Load data
+counts_data = read.table("pseudobulk.tsv")
+
+gene_l = data.frame(GeneId = row.names(counts_data))
+#tx_len: The length of the processed transcript. 
+
+txdb <- TxDb.Hsapiens.UCSC.hg38.knownGene 
+dm3_txlens <- transcriptLengths(txdb)
+head(dm3_txlens)
+
+dm3_txlens <- transcriptLengths(txdb, with.cds_len=TRUE,
+                                with.utr5_len=TRUE,
+                                with.utr3_len=TRUE)
+## When cds_len is not 0 (coding transcript), cds_len + utr5_len +
+## utr3_len must be equal to tx_len:
+coding <- dm3_txlens[dm3_txlens$cds_len != 0, ]
+stopifnot(all(rowSums(coding[6:8]) == coding[[5]]))
+
+## A sanity check:
+stopifnot(identical(dm3_txlens$tx_id, mcols(transcripts(txdb))$tx_id))
+
+gl <- data.frame(Transcript_id = coding$tx_name, cds_length = coding$cds_len)
+#ensid short gl
+ensemblid <- gl$Transcript_id
+ensemblid.short <- substr(ensemblid, 1, 15)
+gl$Transcript_id <- ensemblid.short 
+
+
+#running normalization
+mart <- useMart("ensembl","hsapiens_gene_ensembl")
+ensemble2gene <- getBM(attributes=c("ensembl_transcript_id","external_gene_name","ensembl_gene_id", "start_position", "end_position", "transcript_length"),
+                       filters = "ensembl_transcript_id",
+                       values = gl$Transcript_id, 
+                       mart = mart)
+
+ensemble2gene$chrdiff = ensemble2gene$end_position - ensemble2gene$start_position
+
+
+counts_data_short = counts_data
+gene_len = data.frame("GeneID" = row.names(counts_data_short))
+
+for (i in 1:nrow(gene_len)){
+  ge = gene_len[i,1]
+  ens = subset(ensemble2gene, ensemble2gene$external_gene_name == ge)
+  ens_ord = ens[order(ens$transcript_length, decreasing = T),]
+  gene_len[i,2] = ens_ord[1,6]
+}
+colnames(gene_len) = c("GeneID", "Length")
+
+
+
+GeneDF_EdgeR <- edgeR::DGEList(counts = counts_data_short, genes = gene_len)
+GeneDF_Norm  <- edgeR::calcNormFactors(GeneDF_EdgeR, method = 'TMM')
+tmm_fpkm <- as.data.frame(edgeR::rpkm(GeneDF_Norm, normalized.lib.sizes = TRUE, log = FALSE))
+tmm_fpkm = round(tmm_fpkm,1)
+
