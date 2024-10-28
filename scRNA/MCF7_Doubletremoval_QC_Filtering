@@ -1,0 +1,551 @@
+
+library(cowplot)
+library(Seurat)
+library(ggplot2)
+library(SingleR)
+library(dplyr)
+library(celldex)
+library(RColorBrewer)
+library(SingleCellExperiment)
+library(DoubletFinder)
+library(monocle3)
+
+
+
+# Load the  dataset
+
+
+ctr_1.data <- Read10X(data.dir = "mcf7_ctr1/")
+# Initialize the Seurat object with the raw (non-normalized data).
+ctr_1 <- CreateSeuratObject(counts = ctr_1.data, project = "ctr_1", min.cells = 3, min.features = 200)
+
+
+ctr_2.data <- Read10X(data.dir = "mcf7_ctr2/")
+# Initialize the Seurat object with the raw (non-normalized data).
+ctr_2 <- CreateSeuratObject(counts = ctr_2.data, project = "ctr_2", min.cells = 3, min.features = 200)
+
+
+mcf7_12nap_1.data <- Read10X(data.dir = "mcf7_12nap_1/")
+# Initialize the Seurat object with the raw (non-normalized data).
+mcf7_12nap_1 <- CreateSeuratObject(counts = mcf7_12nap_1.data, project = "mcf7_12nap_1", min.cells = 3, min.features = 200)
+
+
+mcf7_12nap_2.data <- Read10X(data.dir = "mcf7_12nap_2/")
+# Initialize the Seurat object with the raw (non-normalized data).
+mcf7_12nap_2 <- CreateSeuratObject(counts = mcf7_12nap_2.data, project = "mcf7_12nap_2", min.cells = 3, min.features = 200)
+
+
+mcf7_repop1.data <- Read10X(data.dir = "mcf7_repop1/")
+# Initialize the Seurat object with the raw (non-normalized data).
+mcf7_repop1 <- CreateSeuratObject(counts = mcf7_repop1.data, project = "mcf7_repop1", min.cells = 3, min.features = 200)
+
+
+mcf7_repop2.data <- Read10X(data.dir = "mcf7_repop2/")
+# Initialize the Seurat object with the raw (non-normalized data).
+mcf7_repop2 <- CreateSeuratObject(counts = mcf7_repop2.data, project = "mcf7_repop2", min.cells = 3, min.features = 200)
+
+
+
+#Doublet removal
+
+sen_pre.seurat = ctr_1
+sen_pre.seurat$mitoPercent <- PercentageFeatureSet(sen_pre.seurat, pattern = '^MT-')
+
+sen_pre.seurat.filtered <- subset(sen_pre.seurat, subset = nCount_RNA > 800 &
+         nFeature_RNA > 500 &
+         mitoPercent < 10)
+
+
+sen_pre.seurat.filtered <- NormalizeData(object = sen_pre.seurat.filtered)
+sen_pre.seurat.filtered <- FindVariableFeatures(object = sen_pre.seurat.filtered)
+sen_pre.seurat.filtered <- ScaleData(object = sen_pre.seurat.filtered)
+sen_pre.seurat.filtered <- RunPCA(object = sen_pre.seurat.filtered)
+ElbowPlot(sen_pre.seurat.filtered)
+
+sen_pre.seurat.filtered <- FindNeighbors(object = sen_pre.seurat.filtered, dims = 1:15)
+sen_pre.seurat.filtered <- FindClusters(object = sen_pre.seurat.filtered)
+sen_pre.seurat.filtered <- RunUMAP(object = sen_pre.seurat.filtered, dims = 1:15)
+
+DimPlot(sen_pre.seurat.filtered, reduction = "umap")
+
+
+
+## pK Identification (no ground-truth) ---------------------------------------------------------------------------------------
+sweep.res.list_sen_pre <- paramSweep(sen_pre.seurat.filtered, PCs = 1:15, sct = FALSE)
+sweep.stats_sen_pre <- summarizeSweep(sweep.res.list_sen_pre, GT = FALSE)
+bcmvn_sen_pre <- find.pK(sweep.stats_sen_pre)
+
+ggplot(bcmvn_sen_pre, aes(pK, BCmetric, group = 1)) +
+  geom_point() +
+  geom_line()
+
+#pK <- bcmvn_sen_pre %>% # select the pK that corresponds to max bcmvn to optimize doublet detection
+#  filter(BCmetric == max(BCmetric)) %>%
+#  dplyr::select(pK) 
+#pK <- as.numeric(as.character(pK[[1]]))
+
+
+## Homotypic Doublet Proportion Estimate -------------------------------------------------------------------------------------
+annotations <- sen_pre.seurat.filtered@meta.data$seurat_clusters
+homotypic.prop <- modelHomotypic(annotations)          
+nExp_poi <- round(0.076*nrow(sen_pre.seurat.filtered@meta.data))  ## Assuming 7.5% doublet formation rate - tailor for your dataset
+nExp_poi.adj <- round(nExp_poi*(1-homotypic.prop))
+
+
+# run doubletFinder 
+sen_pre.seurat.filtered <- doubletFinder(sen_pre.seurat.filtered, 
+                                     PCs = 1:15, 
+                                     pN = 0.25, 
+                                     pK = 0.28, 
+                                     nExp = nExp_poi.adj,
+                                     reuse.pANN = FALSE, sct = FALSE)
+
+
+# visualize doublets
+DimPlot(sen_pre.seurat.filtered, reduction = 'umap', group.by = "DF.classifications_0.25_0.28_370")
+
+# Filter out doublets
+
+idx <- which(sen_pre.seurat.filtered$DF.classifications_0.25_0.28_370 == 'Doublet')
+n_d_ctr1 = length(idx)
+sen_pre.seurat.filtered_doublet <- sen_pre.seurat.filtered[,idx]
+#table(sen_pre.seurat.filtered_doublet@meta.data$DF.classifications_0.25_0.28_370)
+cells.doublet <- colnames(sen_pre.seurat.filtered_doublet)
+
+idx_d <- which(colnames(ctr_1) %in% cells.doublet)
+ctr_1_nodoublets <- ctr_1[,-idx_d]
+ctr_1_nodoublets
+
+
+
+
+# Control 2 
+
+
+
+
+sen_pre.seurat = ctr_2
+sen_pre.seurat$mitoPercent <- PercentageFeatureSet(sen_pre.seurat, pattern = '^MT-')
+
+sen_pre.seurat.filtered <- subset(sen_pre.seurat, subset = nCount_RNA > 800 &
+         nFeature_RNA > 500 &
+         mitoPercent < 10)
+
+
+# pre-process standard workflow
+sen_pre.seurat.filtered <- NormalizeData(object = sen_pre.seurat.filtered)
+sen_pre.seurat.filtered <- FindVariableFeatures(object = sen_pre.seurat.filtered)
+sen_pre.seurat.filtered <- ScaleData(object = sen_pre.seurat.filtered)
+sen_pre.seurat.filtered <- RunPCA(object = sen_pre.seurat.filtered)
+ElbowPlot(sen_pre.seurat.filtered)
+
+sen_pre.seurat.filtered <- FindNeighbors(object = sen_pre.seurat.filtered, dims = 1:15)
+sen_pre.seurat.filtered <- FindClusters(object = sen_pre.seurat.filtered)
+sen_pre.seurat.filtered <- RunUMAP(object = sen_pre.seurat.filtered, dims = 1:15)
+
+DimPlot(sen_pre.seurat.filtered, reduction = "umap")
+
+
+## pK Identification (no ground-truth) ---------------------------------------------------------------------------------------
+sweep.res.list_sen_pre <- paramSweep(sen_pre.seurat.filtered, PCs = 1:15, sct = FALSE)
+sweep.stats_sen_pre <- summarizeSweep(sweep.res.list_sen_pre, GT = FALSE)
+bcmvn_sen_pre <- find.pK(sweep.stats_sen_pre)
+
+ggplot(bcmvn_sen_pre, aes(pK, BCmetric, group = 1)) +
+  geom_point() +
+  geom_line()
+
+#pK <- bcmvn_sen_pre %>% # select the pK that corresponds to max bcmvn to optimize doublet detection
+#  filter(BCmetric == max(BCmetric)) %>%
+#  dplyr::select(pK) 
+#pK <- as.numeric(as.character(pK[[1]]))
+
+
+## Homotypic Doublet Proportion Estimate -------------------------------------------------------------------------------------
+annotations <- sen_pre.seurat.filtered@meta.data$seurat_clusters
+homotypic.prop <- modelHomotypic(annotations)           
+nExp_poi <- round(0.076*nrow(sen_pre.seurat.filtered@meta.data))  ## Assuming 7.5% doublet formation rate - tailor for your dataset
+nExp_poi.adj <- round(nExp_poi*(1-homotypic.prop))
+
+
+# run doubletFinder 
+sen_pre.seurat.filtered <- doubletFinder(sen_pre.seurat.filtered, 
+                                     PCs = 1:15, 
+                                     pN = 0.25, 
+                                     pK = 0.1, 
+                                     nExp = nExp_poi.adj,
+                                     reuse.pANN = FALSE, sct = FALSE)
+
+
+# visualize doublets
+DimPlot(sen_pre.seurat.filtered, reduction = 'umap', group.by = "DF.classifications_0.25_0.1_225")
+
+
+# number of singlets and doublets
+table(sen_pre.seurat.filtered@meta.data$DF.classifications_0.25_0.1_225)
+
+idx <- which(sen_pre.seurat.filtered$DF.classifications_0.25_0.1_225 == 'Doublet')
+n_d_ctr2 = length(idx)
+sen_pre.seurat.filtered_doublet <- sen_pre.seurat.filtered[,idx]
+#table(sen_pre.seurat.filtered_doublet@meta.data$DF.classifications_0.25_0.28_370)
+cells.doublet <- colnames(sen_pre.seurat.filtered_doublet)
+
+idx_d <- which(colnames(ctr_2) %in% cells.doublet)
+ctr_2_nodoublets <- ctr_2[,-idx_d]
+ctr_2_nodoublets
+
+
+
+
+# mcf7_12nap_1
+
+
+sen_pre.seurat = mcf7_12nap_1
+sen_pre.seurat$mitoPercent <- PercentageFeatureSet(sen_pre.seurat, pattern = '^MT-')
+
+sen_pre.seurat.filtered <- subset(sen_pre.seurat, subset = nCount_RNA > 800 &
+         nFeature_RNA > 500 &
+         mitoPercent < 10)
+
+sen_pre.seurat.filtered
+
+# pre-process standard workflow
+sen_pre.seurat.filtered <- NormalizeData(object = sen_pre.seurat.filtered)
+sen_pre.seurat.filtered <- FindVariableFeatures(object = sen_pre.seurat.filtered)
+sen_pre.seurat.filtered <- ScaleData(object = sen_pre.seurat.filtered)
+sen_pre.seurat.filtered <- RunPCA(object = sen_pre.seurat.filtered)
+ElbowPlot(sen_pre.seurat.filtered)
+
+sen_pre.seurat.filtered <- FindNeighbors(object = sen_pre.seurat.filtered, dims = 1:17)
+sen_pre.seurat.filtered <- FindClusters(object = sen_pre.seurat.filtered)
+sen_pre.seurat.filtered <- RunUMAP(object = sen_pre.seurat.filtered, dims = 1:17)
+
+DimPlot(sen_pre.seurat.filtered, reduction = "umap")
+
+## pK Identification (no ground-truth) ---------------------------------------------------------------------------------------
+sweep.res.list_sen_pre <- paramSweep(sen_pre.seurat.filtered, PCs = 1:17, sct = FALSE)
+sweep.stats_sen_pre <- summarizeSweep(sweep.res.list_sen_pre, GT = FALSE)
+bcmvn_sen_pre <- find.pK(sweep.stats_sen_pre)
+
+ggplot(bcmvn_sen_pre, aes(pK, BCmetric, group = 1)) +
+  geom_point() +
+  geom_line()
+
+
+
+
+## Homotypic Doublet Proportion Estimate -------------------------------------------------------------------------------------
+annotations <- sen_pre.seurat.filtered@meta.data$seurat_clusters
+homotypic.prop <- modelHomotypic(annotations)           
+nExp_poi <- round(0.076*nrow(sen_pre.seurat.filtered@meta.data))  ## Assuming 7.5% doublet formation rate - tailor for your dataset
+nExp_poi.adj <- round(nExp_poi*(1-homotypic.prop))
+
+
+# run doubletFinder 
+sen_pre.seurat.filtered <- doubletFinder(sen_pre.seurat.filtered, 
+                                     PCs = 1:17, 
+                                     pN = 0.25, 
+                                     pK = 0.29, 
+                                     nExp = nExp_poi.adj,
+                                     reuse.pANN = FALSE, sct = FALSE)
+
+
+# visualize doublets
+DimPlot(sen_pre.seurat.filtered, reduction = 'umap', group.by = "DF.classifications_0.25_0.29_439")
+
+
+# number of singlets and doublets
+table(sen_pre.seurat.filtered@meta.data$DF.classifications_0.25_0.29_439)
+
+idx <- which(sen_pre.seurat.filtered$DF.classifications_0.25_0.29_439 == 'Doublet')
+n_d_sen1 = length(idx)
+sen_pre.seurat.filtered_doublet <- sen_pre.seurat.filtered[,idx]
+#table(sen_pre.seurat.filtered_doublet@meta.data$DF.classifications_0.25_0.28_370)
+cells.doublet <- colnames(sen_pre.seurat.filtered_doublet)
+
+idx_d <- which(colnames(mcf7_12nap_1) %in% cells.doublet)
+mcf7_12nap_1_nodoublets <- mcf7_12nap_1[,-idx_d]
+mcf7_12nap_1_nodoublets
+
+
+
+
+# mcf7_12nap_2
+
+
+sen_pre.seurat = mcf7_12nap_2
+sen_pre.seurat$mitoPercent <- PercentageFeatureSet(sen_pre.seurat, pattern = '^MT-')
+
+sen_pre.seurat.filtered <- subset(sen_pre.seurat, subset = nCount_RNA > 800 &
+         nFeature_RNA > 500 &
+         mitoPercent < 10)
+
+sen_pre.seurat.filtered
+
+# pre-process standard workflow
+sen_pre.seurat.filtered <- NormalizeData(object = sen_pre.seurat.filtered)
+sen_pre.seurat.filtered <- FindVariableFeatures(object = sen_pre.seurat.filtered)
+sen_pre.seurat.filtered <- ScaleData(object = sen_pre.seurat.filtered)
+sen_pre.seurat.filtered <- RunPCA(object = sen_pre.seurat.filtered)
+ElbowPlot(sen_pre.seurat.filtered)
+
+sen_pre.seurat.filtered <- FindNeighbors(object = sen_pre.seurat.filtered, dims = 1:19)
+sen_pre.seurat.filtered <- FindClusters(object = sen_pre.seurat.filtered)
+sen_pre.seurat.filtered <- RunUMAP(object = sen_pre.seurat.filtered, dims = 1:19)
+
+DimPlot(sen_pre.seurat.filtered, reduction = "umap")
+
+
+
+## pK Identification (no ground-truth) ---------------------------------------------------------------------------------------
+sweep.res.list_sen_pre <- paramSweep(sen_pre.seurat.filtered, PCs = 1:19, sct = FALSE)
+sweep.stats_sen_pre <- summarizeSweep(sweep.res.list_sen_pre, GT = FALSE)
+bcmvn_sen_pre <- find.pK(sweep.stats_sen_pre)
+
+ggplot(bcmvn_sen_pre, aes(pK, BCmetric, group = 1)) +
+  geom_point() +
+  geom_line()
+
+
+
+
+## Homotypic Doublet Proportion Estimate -------------------------------------------------------------------------------------
+annotations <- sen_pre.seurat.filtered@meta.data$seurat_clusters
+homotypic.prop <- modelHomotypic(annotations)           
+nExp_poi <- round(0.076*nrow(sen_pre.seurat.filtered@meta.data))  ## Assuming 7.5% doublet formation rate - tailor for your dataset
+nExp_poi.adj <- round(nExp_poi*(1-homotypic.prop))
+
+
+# run doubletFinder 
+sen_pre.seurat.filtered <- doubletFinder(sen_pre.seurat.filtered, 
+                                     PCs = 1:19, 
+                                     pN = 0.25, 
+                                     pK = 0.13, 
+                                     nExp = nExp_poi.adj,
+                                     reuse.pANN = FALSE, sct = FALSE)
+
+
+# visualize doublets
+DimPlot(sen_pre.seurat.filtered, reduction = 'umap', group.by = "DF.classifications_0.25_0.13_324")
+
+
+# number of singlets and doublets
+table(sen_pre.seurat.filtered@meta.data$DF.classifications_0.25_0.13_324)
+
+idx <- which(sen_pre.seurat.filtered$DF.classifications_0.25_0.13_324 == 'Doublet')
+n_d_sen2 = length(idx)
+sen_pre.seurat.filtered_doublet <- sen_pre.seurat.filtered[,idx]
+#table(sen_pre.seurat.filtered_doublet@meta.data$DF.classifications_0.25_0.28_370)
+cells.doublet <- colnames(sen_pre.seurat.filtered_doublet)
+
+idx_d <- which(colnames(mcf7_12nap_2) %in% cells.doublet)
+mcf7_12nap_2_nodoublets <- mcf7_12nap_2[,-idx_d]
+mcf7_12nap_2_nodoublets
+
+# mcf7_repop1
+
+
+sen_pre.seurat = mcf7_repop1
+sen_pre.seurat$mitoPercent <- PercentageFeatureSet(sen_pre.seurat, pattern = '^MT-')
+
+sen_pre.seurat.filtered <- subset(sen_pre.seurat, subset = nCount_RNA > 800 &
+         nFeature_RNA > 500 &
+         mitoPercent < 10)
+
+sen_pre.seurat.filtered
+
+# pre-process standard workflow
+sen_pre.seurat.filtered <- NormalizeData(object = sen_pre.seurat.filtered)
+sen_pre.seurat.filtered <- FindVariableFeatures(object = sen_pre.seurat.filtered)
+sen_pre.seurat.filtered <- ScaleData(object = sen_pre.seurat.filtered)
+sen_pre.seurat.filtered <- RunPCA(object = sen_pre.seurat.filtered)
+ElbowPlot(sen_pre.seurat.filtered)
+
+sen_pre.seurat.filtered <- FindNeighbors(object = sen_pre.seurat.filtered, dims = 1:17)
+sen_pre.seurat.filtered <- FindClusters(object = sen_pre.seurat.filtered)
+sen_pre.seurat.filtered <- RunUMAP(object = sen_pre.seurat.filtered, dims = 1:17)
+
+DimPlot(sen_pre.seurat.filtered, reduction = "umap")
+
+
+
+## pK Identification (no ground-truth) ---------------------------------------------------------------------------------------
+sweep.res.list_sen_pre <- paramSweep(sen_pre.seurat.filtered, PCs = 1:17, sct = FALSE)
+sweep.stats_sen_pre <- summarizeSweep(sweep.res.list_sen_pre, GT = FALSE)
+bcmvn_sen_pre <- find.pK(sweep.stats_sen_pre)
+
+ggplot(bcmvn_sen_pre, aes(pK, BCmetric, group = 1)) +
+  geom_point() +
+  geom_line()
+
+
+
+
+## Homotypic Doublet Proportion Estimate -------------------------------------------------------------------------------------
+annotations <- sen_pre.seurat.filtered@meta.data$seurat_clusters
+homotypic.prop <- modelHomotypic(annotations)           
+nExp_poi <- round(0.076*nrow(sen_pre.seurat.filtered@meta.data))  ## Assuming 7.5% doublet formation rate - tailor for your dataset
+nExp_poi.adj <- round(nExp_poi*(1-homotypic.prop))
+
+
+# run doubletFinder 
+sen_pre.seurat.filtered <- doubletFinder(sen_pre.seurat.filtered, 
+                                     PCs = 1:17, 
+                                     pN = 0.25, 
+                                     pK = 0.27, 
+                                     nExp = nExp_poi.adj,
+                                     reuse.pANN = FALSE, sct = FALSE)
+
+
+# visualize doublets
+DimPlot(sen_pre.seurat.filtered, reduction = 'umap', group.by = "DF.classifications_0.25_0.27_325")
+
+
+idx <- which(sen_pre.seurat.filtered$DF.classifications_0.25_0.27_325 == 'Doublet')
+n_d_repop1 = length(idx)
+sen_pre.seurat.filtered_doublet <- sen_pre.seurat.filtered[,idx]
+#table(sen_pre.seurat.filtered_doublet@meta.data$DF.classifications_0.25_0.28_370)
+cells.doublet <- colnames(sen_pre.seurat.filtered_doublet)
+
+idx_d <- which(colnames(mcf7_repop1) %in% cells.doublet)
+mcf7_repop1_nodoublets <- mcf7_repop1[,-idx_d]
+mcf7_repop1_nodoublets
+
+# mcf7_repop2
+
+
+sen_pre.seurat = mcf7_repop2
+sen_pre.seurat$mitoPercent <- PercentageFeatureSet(sen_pre.seurat, pattern = '^MT-')
+
+sen_pre.seurat.filtered <- subset(sen_pre.seurat, subset = nCount_RNA > 800 &
+         nFeature_RNA > 500 &
+         mitoPercent < 10)
+
+sen_pre.seurat.filtered
+
+# pre-process standard workflow
+sen_pre.seurat.filtered <- NormalizeData(object = sen_pre.seurat.filtered)
+sen_pre.seurat.filtered <- FindVariableFeatures(object = sen_pre.seurat.filtered)
+sen_pre.seurat.filtered <- ScaleData(object = sen_pre.seurat.filtered)
+sen_pre.seurat.filtered <- RunPCA(object = sen_pre.seurat.filtered)
+ElbowPlot(sen_pre.seurat.filtered)
+
+sen_pre.seurat.filtered <- FindNeighbors(object = sen_pre.seurat.filtered, dims = 1:15)
+sen_pre.seurat.filtered <- FindClusters(object = sen_pre.seurat.filtered)
+sen_pre.seurat.filtered <- RunUMAP(object = sen_pre.seurat.filtered, dims = 1:15)
+
+DimPlot(sen_pre.seurat.filtered, reduction = "umap")
+
+
+
+## pK Identification (no ground-truth) ---------------------------------------------------------------------------------------
+sweep.res.list_sen_pre <- paramSweep(sen_pre.seurat.filtered, PCs = 1:15, sct = FALSE)
+sweep.stats_sen_pre <- summarizeSweep(sweep.res.list_sen_pre, GT = FALSE)
+bcmvn_sen_pre <- find.pK(sweep.stats_sen_pre)
+
+ggplot(bcmvn_sen_pre, aes(pK, BCmetric, group = 1)) +
+  geom_point() +
+  geom_line()
+
+
+
+
+## Homotypic Doublet Proportion Estimate -------------------------------------------------------------------------------------
+annotations <- sen_pre.seurat.filtered@meta.data$seurat_clusters
+homotypic.prop <- modelHomotypic(annotations)           
+nExp_poi <- round(0.076*nrow(sen_pre.seurat.filtered@meta.data))  ## Assuming 7.5% doublet formation rate - tailor for your dataset
+nExp_poi.adj <- round(nExp_poi*(1-homotypic.prop))
+
+
+# run doubletFinder 
+sen_pre.seurat.filtered <- doubletFinder(sen_pre.seurat.filtered, 
+                                     PCs = 1:15, 
+                                     pN = 0.25, 
+                                     pK = 0.08, 
+                                     nExp = nExp_poi.adj,
+                                     reuse.pANN = FALSE, sct = FALSE)
+
+
+# visualize doublets
+DimPlot(sen_pre.seurat.filtered, reduction = 'umap', group.by = "DF.classifications_0.25_0.08_211")
+
+
+# number of singlets and doublets
+table(sen_pre.seurat.filtered@meta.data$DF.classifications_0.25_0.08_211)
+
+idx <- which(sen_pre.seurat.filtered$DF.classifications_0.25_0.08_211 == 'Doublet')
+n_d_repop2 = length(idx)
+sen_pre.seurat.filtered_doublet <- sen_pre.seurat.filtered[,idx]
+#table(sen_pre.seurat.filtered_doublet@meta.data$DF.classifications_0.25_0.28_370)
+cells.doublet <- colnames(sen_pre.seurat.filtered_doublet)
+
+idx_d <- which(colnames(mcf7_repop2) %in% cells.doublet)
+mcf7_repop2_nodoublets <- mcf7_repop2[,-idx_d]
+mcf7_repop2_nodoublets
+
+# Doublet statistic
+
+
+d_p_ctr1 = ncol(ctr_1_nodoublets) / ncol(ctr_1)
+d_p_ctr2 = ncol(ctr_2_nodoublets) / ncol(ctr_2)
+d_p_sen1 = ncol(mcf7_12nap_1_nodoublets) / ncol(mcf7_12nap_1)
+d_p_sen2 = ncol(mcf7_12nap_2_nodoublets) / ncol(mcf7_12nap_2)
+d_p_repop1 = ncol(mcf7_repop1_nodoublets) / ncol(mcf7_repop1)
+d_p_repop2 = ncol(mcf7_repop2_nodoublets) / ncol(mcf7_repop2)
+
+df_doublet_stat = data.frame("sample" = c("ctr1", "ctr2", "sen1", "sen2", "repop1", "repop2"), 
+                             "Percentage of singulets" = c(d_p_ctr1, d_p_ctr2,d_p_sen1, d_p_sen2, d_p_repop1, d_p_repop2))
+df_doublet_stat$Percentage.of.singulets = as.numeric(df_doublet_stat$Percentage.of.singulets)
+df_doublet_stat$Percentage.of.singulets = round(df_doublet_stat$Percentage.of.singulets,3)
+
+ggplot(data=df_doublet_stat, aes(x=sample, y=Percentage.of.singulets)) +
+  geom_bar(stat="identity", color="blue", fill="lightblue")+
+  geom_text(aes(label=Percentage.of.singulets), vjust=1.6, color="black", size=3.5)+
+  theme_minimal()
+
+
+
+
+
+# Merge the data into one proj file
+
+
+
+mcf7_proj <- merge(ctr_1_nodoublets, y = c(ctr_2_nodoublets, mcf7_12nap_1_nodoublets, mcf7_12nap_2_nodoublets, mcf7_repop1_nodoublets, mcf7_repop2_nodoublets), add.cell.ids = c("ctr_1", "ctr_2", "12nap_1", "12nap_2","repop1", "repop2"), project = "mcf7")
+
+
+# QC
+
+#Michochondrial genes are useful indicators of cell state.
+
+mcf7_proj[["percent.mt"]] <- PercentageFeatureSet(mcf7_proj, pattern = "^MT-")
+
+
+mcf7_proj[["percent.rb"]] <- PercentageFeatureSet(mcf7_proj, pattern = "^RP[SL]")
+
+
+
+VlnPlot(mcf7_proj, split.by = mcf7_proj$orig.ident ,features = c("nFeature_RNA"), ncol = 1, pt.size = 0.1) & 
+  theme(plot.title = element_text(size=10))
+
+VlnPlot(mcf7_proj, split.by = mcf7_proj$orig.ident,features = c("nCount_RNA"),ncol = 1,pt.size = 0.1) & 
+  theme(plot.title = element_text(size=10))
+
+VlnPlot(mcf7_proj, split.by = mcf7_proj$orig.ident,features = c("percent.mt"),ncol = 1,pt.size = 0.1) & 
+  theme(plot.title = element_text(size=10))
+
+VlnPlot(mcf7_proj, split.by = mcf7_proj$orig.ident,features = c("percent.rb"),ncol = 1,pt.size = 0.1) & 
+  theme(plot.title = element_text(size=10))
+
+
+FeatureScatter(mcf7_proj, feature1 = "nCount_RNA", feature2 = "percent.mt")
+
+FeatureScatter(mcf7_proj, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+
+FeatureScatter(mcf7_proj, feature1 = "percent.rb", feature2 = "percent.mt")
+
+
+# Filtering step
+
+mcf7_proj_filtered <- subset(mcf7_proj, subset = nFeature_RNA > 500 & nCount_RNA > 1000 & nCount_RNA < 30000 & percent.mt < 10)
+
