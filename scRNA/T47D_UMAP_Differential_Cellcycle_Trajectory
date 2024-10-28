@@ -93,7 +93,7 @@ Idents(mcf7_proj_filtered) = mcf7_proj_filtered$orig.ident
 diff_genes <- FindMarkers(mcf7_proj_filtered, ident.1 = c("T47D_TIS_1"  , "T47D_TIS_2"), ident.2 = c("T47D_CTR_1" ,  "T47D_CTR_2" ))
 head(diff_genes, n = 20)
 
-
+# T47D CTR and TIS Monocle3
 
 t47d_proj_filtered_test_ctr_sen <- subset(t47d_proj_filtered, subset=orig.ident %in% c("T47D_CTR_1" ,  "T47D_CTR_2" ,  "T47D_TIS_1"  , "T47D_TIS_2" ))
 
@@ -118,8 +118,8 @@ cds@int_colData@listData[["reducedDims"]]@listData[["UMAP"]] <- t47d_proj_filter
 cds <- learn_graph(cds, use_partition = FALSE)
 
 
-get_earliest_principal_node <- function(cds, time_bin="5"){
-  cell_ids <- which(colData(cds)[, "ident"] == 5)
+get_earliest_principal_node <- function(cds, time_bin="7"){
+  cell_ids <- which(colData(cds)[, "ident"] == 7)
   
   closest_vertex <-
     cds@principal_graph_aux[["UMAP"]]$pr_graph_cell_proj_closest_vertex
@@ -150,7 +150,7 @@ write.table(deg, "traj_deg_t47d_ctr_to_sen.tsv", sep = "\t",
             col.names = T, row.names = T)
 
 
-
+# T47D TIS and REPOP Monocle3
 
 
 t47d_proj_filtered_test_sen_to_repop <- subset(t47d_proj_filtered, subset=orig.ident %in% c("T47D_REPOP_1", "T47D_REPOP_2" ,       "T47D_TIS_1", "T47D_TIS_2" ))
@@ -178,8 +178,8 @@ cds <- learn_graph(cds, use_partition = FALSE)
 
 
 
-get_earliest_principal_node <- function(cds, time_bin="7"){
-  cell_ids <- which(colData(cds)[, "ident"] == 7)
+get_earliest_principal_node <- function(cds, time_bin="3"){
+  cell_ids <- which(colData(cds)[, "ident"] == 3)
   
   closest_vertex <-
     cds@principal_graph_aux[["UMAP"]]$pr_graph_cell_proj_closest_vertex
