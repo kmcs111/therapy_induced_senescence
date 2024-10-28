@@ -549,3 +549,6 @@ FeatureScatter(mcf7_proj, feature1 = "percent.rb", feature2 = "percent.mt")
 
 mcf7_proj_filtered <- subset(mcf7_proj, subset = nFeature_RNA > 500 & nCount_RNA > 1000 & nCount_RNA < 30000 & percent.mt < 10)
 
+# Save
+
+saveRDS(mcf7_proj_filtered, "mcf7_filtered.Rds")
