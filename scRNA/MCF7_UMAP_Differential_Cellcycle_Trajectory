@@ -104,13 +104,6 @@ head(diff_genes, n = 20)
 
 mcf7_proj_filtered_test_ctr_sen <- subset(mcf7_proj_filtered, subset=orig.ident %in% c("MCF7_CTR_1" ,  "MCF7_CTR_2" ,  "MCF7_TIS_1"  , "MCF7_TIS_2" ))
 
-# For removing cell cycle genes
-#s.genes <- cc.genes.updated.2019$s.genes
-#g2m.genes <- cc.genes.updated.2019$g2m.genes
-#cc_genes = c(s.genes, g2m.genes)
-
-#mcf7_proj_filtered@assays$RNA$data =  mcf7_proj_filtered@assays$RNA$data[-which(row.names(mcf7_proj_filtered) %in% cc_genes),]
-
 
 umaps = mcf7_proj_filtered_test_ctr_sen@reductions$umap@cell.embeddings
 umaps_filterout = umaps[which(umaps[,1] > 0 & umaps[,2] > 0.5),]
@@ -122,11 +115,6 @@ length(umaps_keep)
 
 mcf7_proj_filtered_test_ctr_sen <- subset(mcf7_proj_filtered_test_ctr_sen, cells = umaps_keep)
 mcf7_proj_filtered_test_ctr_sen
-
-# For removing cell cycle genes
-#counts <- GetAssayData(mcf7_proj_filtered_test_ctr_sen, assay = "RNA")
-#counts <- counts[-(which(rownames(counts) %in% cc_genes)),]
-#mcf7_proj_filtered_test_ctr_sen <- subset(mcf7_proj_filtered_test_ctr_sen, features = rownames(counts))
 
 
 cds <- SeuratWrappers::as.cell_data_set(mcf7_proj_filtered_test_ctr_sen) #change to cds here
@@ -199,11 +187,6 @@ length(umaps_keep)
 
 mcf7_proj_filtered_test_sen_to_repop <- subset(mcf7_proj_filtered_test_sen_to_repop, cells = umaps_keep)
 mcf7_proj_filtered_test_sen_to_repop
-
-#counts <- GetAssayData(mcf7_proj_filtered_test_sen_to_repop, assay = "RNA")
-#counts <- counts[-(which(rownames(counts) %in% cc_genes)),]
-#mcf7_proj_filtered_test_sen_to_repop <- subset(mcf7_proj_filtered_test_sen_to_repop, features = rownames(counts))
-
 
 cds <- SeuratWrappers::as.cell_data_set(mcf7_proj_filtered_test_sen_to_repop) #change to cds here
 
