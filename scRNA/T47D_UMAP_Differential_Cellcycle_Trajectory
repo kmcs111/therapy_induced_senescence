@@ -87,11 +87,15 @@ t47d_proj_filtered_cyclecorrection <- RunPCA(t47d_proj_filtered_cyclecorrection,
 DimPlot(t47d_proj_filtered_cyclecorrection,cols = c('G1' = '#00BA38', 'G2M' = '#F8766D', 'S' = '#619CFF'),order = c("G1", "S", "G2"))
 
 
+# For differential analysis the FidMarkers function
+
+Idents(mcf7_proj_filtered) = mcf7_proj_filtered$orig.ident
+diff_genes <- FindMarkers(mcf7_proj_filtered, ident.1 = c("T47D_TIS_1"  , "T47D_TIS_2"), ident.2 = c("T47D_CTR_1" ,  "T47D_CTR_2" ))
+head(diff_genes, n = 20)
 
 
 
-
-t47d_proj_filtered_test_ctr_sen <- subset(t47d_proj_filtered, subset=orig.ident %in% c("t47d_CTR_1" ,  "t47d_CTR_2" ,  "t47d_TIS_1"  , "t47d_TIS_2" ))
+t47d_proj_filtered_test_ctr_sen <- subset(t47d_proj_filtered, subset=orig.ident %in% c("T47D_CTR_1" ,  "T47D_CTR_2" ,  "T47D_TIS_1"  , "T47D_TIS_2" ))
 
 
 t47d_proj_filtered@assays$RNA$data =  t47d_proj_filtered@assays$RNA$data[-which(row.names(t47d_proj_filtered) %in% cc_genes),]
@@ -165,7 +169,7 @@ write.table(deg, "traj_deg_t47d_ctr_to_sen.tsv", sep = "\t",
 
 
 
-t47d_proj_filtered_test_sen_to_repop <- subset(t47d_proj_filtered, subset=orig.ident %in% c("t47d_REPOP_1", "t47d_REPOP_2" ,       "t47d_TIS_1", "t47d_TIS_2" ))
+t47d_proj_filtered_test_sen_to_repop <- subset(t47d_proj_filtered, subset=orig.ident %in% c("T47D_REPOP_1", "T47D_REPOP_2" ,       "T47D_TIS_1", "T47D_TIS_2" ))
 
 
 umaps = t47d_proj_filtered_test_sen_to_repop@reductions$umap@cell.embeddings
