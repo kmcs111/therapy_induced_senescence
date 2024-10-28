@@ -1,0 +1,265 @@
+library(cowplot)
+library(Seurat)
+library(ggplot2)
+library(SingleR)
+library(dplyr)
+library(celldex)
+library(RColorBrewer)
+library(SingleCellExperiment)
+library(DoubletFinder)
+library(monocle3)
+
+#Load filtered data
+
+mcf7_proj_filtered = readRDS("mcf7_filtered.Rds")
+
+
+# Rename
+
+mcf7_proj_filtered$orig.ident[which(mcf7_proj_filtered$orig.ident == "ctr_1")] = "MCF7_CTR_1"
+mcf7_proj_filtered$orig.ident[which(mcf7_proj_filtered$orig.ident == "ctr_2")] = "MCF7_CTR_2"
+
+mcf7_proj_filtered$orig.ident[which(mcf7_proj_filtered$orig.ident == "mcf7_12nap_1")] = "MCF7_TIS_1"
+mcf7_proj_filtered$orig.ident[which(mcf7_proj_filtered$orig.ident == "mcf7_12nap_2")] = "MCF7_TIS_2"
+
+mcf7_proj_filtered$orig.ident[which(mcf7_proj_filtered$orig.ident == "mcf7_repop1")] = "MCF7_REPOP_1"
+mcf7_proj_filtered$orig.ident[which(mcf7_proj_filtered$orig.ident == "mcf7_repop2")] = "MCF7_REPOP_2"
+
+# Normalizing the data
+
+
+
+mcf7_proj_filtered <- NormalizeData(mcf7_proj_filtered, normalization.method = "LogNormalize", scale.factor = 10000)
+
+# Discovers the most variable features
+
+
+mcf7_proj_filtered <- FindVariableFeatures(mcf7_proj_filtered, selection.method = "vst", nfeatures = 2000)
+
+
+
+# Scale the data
+
+
+all.genes <- rownames(mcf7_proj_filtered)
+mcf7_proj_filtered <- ScaleData(mcf7_proj_filtered, features = all.genes)
+
+
+# PCA analysis and figures
+
+
+
+mcf7_proj_filtered <- RunPCA(mcf7_proj_filtered, features = VariableFeatures(object = mcf7_proj_filtered))
+
+
+
+
+
+
+# Clustering, UMAP, cellcycle
+
+ElbowPlot(mcf7_proj_filtered, reduction = "pca")
+
+mcf7_proj_filtered <- FindNeighbors(mcf7_proj_filtered, dims = 1:15, reduction = "pca")
+
+
+mcf7_proj_filtered <- FindClusters(mcf7_proj_filtered, resolution = 0.3, reduction = "pca")
+
+
+mcf7_proj_filtered <- RunUMAP(mcf7_proj_filtered, dims = 1:15, verbose = F, reduction = "pca")
+
+
+
+
+DimPlot(mcf7_proj_filtered,label.size = 4,repel = T,label = T, reduction = "umap")
+
+
+# Cell cycle on UMAP
+mcf7_proj_filtered = JoinLayers(mcf7_proj_filtered)
+
+s.genes <- cc.genes.updated.2019$s.genes
+g2m.genes <- cc.genes.updated.2019$g2m.genes
+
+
+mcf7_proj_filtered_cyclecorrection <- CellCycleScoring(mcf7_proj_filtered, s.features = s.genes, g2m.features = g2m.genes, set.ident = TRUE)
+
+
+mcf7_proj_filtered_cyclecorrection <- RunPCA(mcf7_proj_filtered_cyclecorrection, features = c(s.genes, g2m.genes))
+DimPlot(mcf7_proj_filtered_cyclecorrection,cols = c('G1' = '#00BA38', 'G2M' = '#F8766D', 'S' = '#619CFF'),order = c("G1", "S", "G2"))
+
+
+
+
+
+
+# For differential analysis the FidMarkers function
+
+Idents(mcf7_proj_filtered) = mcf7_proj_filtered$orig.ident
+diff_genes <- FindMarkers(mcf7_proj_filtered, ident.1 = c("MCF7_TIS_1"  , "MCF7_TIS_2"), ident.2 = c("MCF7_CTR_1" ,  "MCF7_CTR_2" ))
+head(diff_genes, n = 20)
+
+
+
+# Trajectory CTR and TIS
+
+mcf7_proj_filtered_test_ctr_sen <- subset(mcf7_proj_filtered, subset=orig.ident %in% c("MCF7_CTR_1" ,  "MCF7_CTR_2" ,  "MCF7_TIS_1"  , "MCF7_TIS_2" ))
+
+# For removing cell cycle genes
+#s.genes <- cc.genes.updated.2019$s.genes
+#g2m.genes <- cc.genes.updated.2019$g2m.genes
+#cc_genes = c(s.genes, g2m.genes)
+
+#mcf7_proj_filtered@assays$RNA$data =  mcf7_proj_filtered@assays$RNA$data[-which(row.names(mcf7_proj_filtered) %in% cc_genes),]
+
+
+umaps = mcf7_proj_filtered_test_ctr_sen@reductions$umap@cell.embeddings
+umaps_filterout = umaps[which(umaps[,1] > 0 & umaps[,2] > 0.5),]
+umaps_filterout_bc = row.names(umaps_filterout)
+umaps_keep = row.names(umaps)
+length(umaps_keep)
+umaps_keep = umaps_keep[-which(umaps_keep %in% umaps_filterout_bc)]
+length(umaps_keep)
+
+mcf7_proj_filtered_test_ctr_sen <- subset(mcf7_proj_filtered_test_ctr_sen, cells = umaps_keep)
+mcf7_proj_filtered_test_ctr_sen
+
+# For removing cell cycle genes
+#counts <- GetAssayData(mcf7_proj_filtered_test_ctr_sen, assay = "RNA")
+#counts <- counts[-(which(rownames(counts) %in% cc_genes)),]
+#mcf7_proj_filtered_test_ctr_sen <- subset(mcf7_proj_filtered_test_ctr_sen, features = rownames(counts))
+
+
+cds <- SeuratWrappers::as.cell_data_set(mcf7_proj_filtered_test_ctr_sen) #change to cds here
+
+fData(cds)$gene_short_name <- rownames(fData(cds))
+head(fData(cds))
+
+recreate.partitions <- c(rep(1, length(cds@colData@rownames)))
+names(recreate.partitions) <- cds@colData@rownames
+recreate.partitions <- as.factor(recreate.partitions)
+
+
+cds@clusters@listData[["UMAP"]][["partitions"]] <- recreate.partitions
+
+list.cluster <- mcf7_proj_filtered_test_ctr_sen@active.ident
+cds@clusters@listData[["UMAP"]][["clusters"]] <- list.cluster
+
+cds@int_colData@listData[["reducedDims"]]@listData[["UMAP"]] <- mcf7_proj_filtered_test_ctr_sen@reductions$umap@cell.embeddings
+
+cds <- learn_graph(cds, use_partition = FALSE)
+
+
+get_earliest_principal_node <- function(cds, time_bin="5"){
+  cell_ids <- which(colData(cds)[, "ident"] == 5)
+  
+  closest_vertex <-
+    cds@principal_graph_aux[["UMAP"]]$pr_graph_cell_proj_closest_vertex
+  closest_vertex <- as.matrix(closest_vertex[colnames(cds), ])
+  root_pr_nodes <-
+    igraph::V(principal_graph(cds)[["UMAP"]])$name[as.numeric(names
+                                                              (which.max(table(closest_vertex[cell_ids,]))))]
+  
+  root_pr_nodes
+}
+
+get_earliest_principal_node(cds)
+
+#cds <- order_cells(cds, reduction_method = 'UMAP', root_cells = NULL, root_cells = get_earliest_principal_node(cds))
+cds <- order_cells(cds, root_pr_nodes=get_earliest_principal_node(cds))
+
+
+
+cds$monocle3_pseudotime <- pseudotime(cds)
+data.pseudo <- as.data.frame(colData(cds))
+
+ggplot(data.pseudo, aes(monocle3_pseudotime, seurat_clusters, fill = seurat_clusters)) + geom_boxplot()
+
+
+
+deg <- graph_test(cds, neighbor_graph = "principal_graph")
+deg %>% arrange(q_value) %>% filter(status == "OK") %>% head()
+
+write.table(deg, "traj_deg_mcf7_ctr_to_sen.tsv", sep = "\t",
+            col.names = T, row.names = T)
+
+
+
+# Trajectory REPOP and TIS
+
+mcf7_proj_filtered_test_sen_to_repop <- subset(mcf7_proj_filtered, subset=orig.ident %in% c("mcf7_REPOP_1", "mcf7_REPOP_2" ,       "mcf7_TIS_1", "mcf7_TIS_2" ))
+
+
+umaps = mcf7_proj_filtered_test_sen_to_repop@reductions$umap@cell.embeddings
+umaps_filterout = umaps[which(umaps[,1] > 0 & umaps[,2] < -2),]
+umaps_filterout_bc = row.names(umaps_filterout)
+umaps_keep = row.names(umaps)
+length(umaps_keep)
+umaps_keep = umaps_keep[-which(umaps_keep %in% umaps_filterout_bc)]
+length(umaps_keep)
+
+mcf7_proj_filtered_test_sen_to_repop <- subset(mcf7_proj_filtered_test_sen_to_repop, cells = umaps_keep)
+mcf7_proj_filtered_test_sen_to_repop
+
+#counts <- GetAssayData(mcf7_proj_filtered_test_sen_to_repop, assay = "RNA")
+#counts <- counts[-(which(rownames(counts) %in% cc_genes)),]
+#mcf7_proj_filtered_test_sen_to_repop <- subset(mcf7_proj_filtered_test_sen_to_repop, features = rownames(counts))
+
+
+cds <- SeuratWrappers::as.cell_data_set(mcf7_proj_filtered_test_sen_to_repop) #change to cds here
+
+fData(cds)$gene_short_name <- rownames(fData(cds))
+head(fData(cds))
+
+recreate.partitions <- c(rep(1, length(cds@colData@rownames)))
+names(recreate.partitions) <- cds@colData@rownames
+recreate.partitions <- as.factor(recreate.partitions)
+
+
+cds@clusters@listData[["UMAP"]][["partitions"]] <- recreate.partitions
+
+list.cluster <- mcf7_proj_filtered_test_sen_to_repop@active.ident
+cds@clusters@listData[["UMAP"]][["clusters"]] <- list.cluster
+
+cds@int_colData@listData[["reducedDims"]]@listData[["UMAP"]] <- mcf7_proj_filtered_test_sen_to_repop@reductions$umap@cell.embeddings
+
+
+
+cds <- learn_graph(cds, use_partition = FALSE)
+
+
+
+get_earliest_principal_node <- function(cds, time_bin="7"){
+  cell_ids <- which(colData(cds)[, "ident"] == 7)
+
+  closest_vertex <-
+  cds@principal_graph_aux[["UMAP"]]$pr_graph_cell_proj_closest_vertex
+  closest_vertex <- as.matrix(closest_vertex[colnames(cds), ])
+  root_pr_nodes <-
+    igraph::V(principal_graph(cds)[["UMAP"]])$name[as.numeric(names
+   (which.max(table(closest_vertex[cell_ids,]))))]
+
+  root_pr_nodes
+}
+
+get_earliest_principal_node(cds)
+
+
+cds <- order_cells(cds, root_pr_nodes=get_earliest_principal_node(cds))
+
+
+
+cds$monocle3_pseudotime <- pseudotime(cds)
+data.pseudo <- as.data.frame(colData(cds))
+
+ggplot(data.pseudo, aes(monocle3_pseudotime, seurat_clusters, fill = seurat_clusters)) + geom_boxplot()
+
+ggplot(data.pseudo, aes(monocle3_pseudotime, reorder(seurat_clusters, monocle3_pseudotime), fill = seurat_clusters)) + geom_boxplot()
+
+deg <- graph_test(cds, neighbor_graph = "principal_graph")
+deg %>% arrange(q_value) %>% filter(status == "OK") %>% head()
+
+write.table(deg, "traj_deg_mcf7_sen_to_repop.tsv", sep = "\t",
+            col.names = T, row.names = T)
+
+
+
