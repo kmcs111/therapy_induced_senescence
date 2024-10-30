@@ -14,27 +14,27 @@ prefix = getwd()
 # Initialize the Seurat object with the raw (non-normalized data).
 
 ctr_1.data <- Read10X(data.dir = paste0(prefix, "/mcf7_ctr_1"))
-ctr_1 <- CreateSeuratObject(counts = ctr_1.data, project = "ctr_1", min.cells = 3, min.features = 200)
+ctr_1 <- CreateSeuratObject(counts = ctr_1.data, project = "MCF7_CTR_1", min.cells = 3, min.features = 200)
 
 
 ctr_2.data <- Read10X(data.dir = paste0(prefix, "/mcf7_ctr_2"))
-ctr_2 <- CreateSeuratObject(counts = ctr_2.data, project = "ctr_2", min.cells = 3, min.features = 200)
+ctr_2 <- CreateSeuratObject(counts = ctr_2.data, project = "MCF7_CTR_2", min.cells = 3, min.features = 200)
 
 
 mcf7_tis_1.data <- Read10X(data.dir = paste0(prefix, "/mcf7_tis_1"))
-mcf7_tis_1 <- CreateSeuratObject(counts = mcf7_tis_1.data, project = "mcf7_tis_1", min.cells = 3, min.features = 200)
+mcf7_tis_1 <- CreateSeuratObject(counts = mcf7_tis_1.data, project = "MCF7_TIS_1", min.cells = 3, min.features = 200)
 
 
 mcf7_tis_2.data <- Read10X(data.dir = paste0(prefix, "/mcf7_tis_2"))
-mcf7_tis_2 <- CreateSeuratObject(counts = mcf7_tis_2.data, project = "mcf7_tis_2", min.cells = 3, min.features = 200)
+mcf7_tis_2 <- CreateSeuratObject(counts = mcf7_tis_2.data, project = "MCF7_TIS_2", min.cells = 3, min.features = 200)
 
 
 mcf7_repop_1.data <- Read10X(data.dir = paste0(prefix, "/mcf7_repop_1"))
-mcf7_repop_1 <- CreateSeuratObject(counts = mcf7_repop_1.data, project = "mcf7_repop_1", min.cells = 3, min.features = 200)
+mcf7_repop_1 <- CreateSeuratObject(counts = mcf7_repop_1.data, project = "MCF7_REPOP_1", min.cells = 3, min.features = 200)
 
 
 mcf7_repop_2.data <- Read10X(data.dir = paste0(prefix, "/mcf7_repop_2"))
-mcf7_repop_2 <- CreateSeuratObject(counts = mcf7_repop_2.data, project = "mcf7_repop_2", min.cells = 3, min.features = 200)
+mcf7_repop_2 <- CreateSeuratObject(counts = mcf7_repop_2.data, project = "MCF7_REPOP_2", min.cells = 3, min.features = 200)
 
 
 
