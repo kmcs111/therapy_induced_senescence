@@ -1,10 +1,6 @@
-
-library(cowplot)
 library(Seurat)
 library(ggplot2)
-library(SingleR)
 library(dplyr)
-library(RColorBrewer)
 library(SingleCellExperiment)
 library(DoubletFinder)
 library(monocle3)
@@ -13,35 +9,32 @@ library(monocle3)
 
 # Load the  dataset
 
+prefix = getwd()
 
-ctr_1.data <- Read10X(data.dir = "mcf7_ctr1/")
 # Initialize the Seurat object with the raw (non-normalized data).
+
+ctr_1.data <- Read10X(data.dir = paste0(prefix, "/mcf7_ctr_1"))
 ctr_1 <- CreateSeuratObject(counts = ctr_1.data, project = "ctr_1", min.cells = 3, min.features = 200)
 
 
-ctr_2.data <- Read10X(data.dir = "mcf7_ctr2/")
-# Initialize the Seurat object with the raw (non-normalized data).
+ctr_2.data <- Read10X(data.dir = paste0(prefix, "/mcf7_ctr_2"))
 ctr_2 <- CreateSeuratObject(counts = ctr_2.data, project = "ctr_2", min.cells = 3, min.features = 200)
 
 
-mcf7_12nap_1.data <- Read10X(data.dir = "mcf7_12nap_1/")
-# Initialize the Seurat object with the raw (non-normalized data).
-mcf7_12nap_1 <- CreateSeuratObject(counts = mcf7_12nap_1.data, project = "mcf7_12nap_1", min.cells = 3, min.features = 200)
+mcf7_tis_1.data <- Read10X(data.dir = paste0(prefix, "/mcf7_tis_1"))
+mcf7_tis_1 <- CreateSeuratObject(counts = mcf7_tis_1.data, project = "mcf7_tis_1", min.cells = 3, min.features = 200)
 
 
-mcf7_12nap_2.data <- Read10X(data.dir = "mcf7_12nap_2/")
-# Initialize the Seurat object with the raw (non-normalized data).
-mcf7_12nap_2 <- CreateSeuratObject(counts = mcf7_12nap_2.data, project = "mcf7_12nap_2", min.cells = 3, min.features = 200)
+mcf7_tis_2.data <- Read10X(data.dir = paste0(prefix, "/mcf7_tis_2"))
+mcf7_tis_2 <- CreateSeuratObject(counts = mcf7_tis_2.data, project = "mcf7_tis_2", min.cells = 3, min.features = 200)
 
 
-mcf7_repop1.data <- Read10X(data.dir = "mcf7_repop1/")
-# Initialize the Seurat object with the raw (non-normalized data).
-mcf7_repop1 <- CreateSeuratObject(counts = mcf7_repop1.data, project = "mcf7_repop1", min.cells = 3, min.features = 200)
+mcf7_repop_1.data <- Read10X(data.dir = paste0(prefix, "/mcf7_repop_1"))
+mcf7_repop_1 <- CreateSeuratObject(counts = mcf7_repop_1.data, project = "mcf7_repop_1", min.cells = 3, min.features = 200)
 
 
-mcf7_repop2.data <- Read10X(data.dir = "mcf7_repop2/")
-# Initialize the Seurat object with the raw (non-normalized data).
-mcf7_repop2 <- CreateSeuratObject(counts = mcf7_repop2.data, project = "mcf7_repop2", min.cells = 3, min.features = 200)
+mcf7_repop_2.data <- Read10X(data.dir = paste0(prefix, "/mcf7_repop_2"))
+mcf7_repop_2 <- CreateSeuratObject(counts = mcf7_repop_2.data, project = "mcf7_repop_2", min.cells = 3, min.features = 200)
 
 
 
@@ -51,8 +44,8 @@ sen_pre.seurat = ctr_1
 sen_pre.seurat$mitoPercent <- PercentageFeatureSet(sen_pre.seurat, pattern = '^MT-')
 
 sen_pre.seurat.filtered <- subset(sen_pre.seurat, subset = nCount_RNA > 800 &
-         nFeature_RNA > 500 &
-         mitoPercent < 10)
+                                    nFeature_RNA > 500 &
+                                    mitoPercent < 10)
 
 
 sen_pre.seurat.filtered <- NormalizeData(object = sen_pre.seurat.filtered)
@@ -78,10 +71,10 @@ ggplot(bcmvn_sen_pre, aes(pK, BCmetric, group = 1)) +
   geom_point() +
   geom_line()
 
-#pK <- bcmvn_sen_pre %>% # select the pK that corresponds to max bcmvn to optimize doublet detection
-#  filter(BCmetric == max(BCmetric)) %>%
-#  dplyr::select(pK) 
-#pK <- as.numeric(as.character(pK[[1]]))
+pK <- bcmvn_sen_pre %>% # select the pK that corresponds to max bcmvn to optimize doublet detection
+  filter(BCmetric == max(BCmetric)) %>%
+  dplyr::select(pK) 
+pK <- as.numeric(as.character(pK[[1]]))
 
 
 ## Homotypic Doublet Proportion Estimate -------------------------------------------------------------------------------------
@@ -93,11 +86,11 @@ nExp_poi.adj <- round(nExp_poi*(1-homotypic.prop))
 
 # run doubletFinder 
 sen_pre.seurat.filtered <- doubletFinder(sen_pre.seurat.filtered, 
-                                     PCs = 1:15, 
-                                     pN = 0.25, 
-                                     pK = 0.28, 
-                                     nExp = nExp_poi.adj,
-                                     reuse.pANN = FALSE, sct = FALSE)
+                                         PCs = 1:15, 
+                                         pN = 0.25, 
+                                         pK = pK, 
+                                         nExp = nExp_poi.adj,
+                                         reuse.pANN = FALSE, sct = FALSE)
 
 
 # visualize doublets
@@ -127,8 +120,8 @@ sen_pre.seurat = ctr_2
 sen_pre.seurat$mitoPercent <- PercentageFeatureSet(sen_pre.seurat, pattern = '^MT-')
 
 sen_pre.seurat.filtered <- subset(sen_pre.seurat, subset = nCount_RNA > 800 &
-         nFeature_RNA > 500 &
-         mitoPercent < 10)
+                                    nFeature_RNA > 500 &
+                                    mitoPercent < 10)
 
 
 # pre-process standard workflow
@@ -154,10 +147,10 @@ ggplot(bcmvn_sen_pre, aes(pK, BCmetric, group = 1)) +
   geom_point() +
   geom_line()
 
-#pK <- bcmvn_sen_pre %>% # select the pK that corresponds to max bcmvn to optimize doublet detection
-#  filter(BCmetric == max(BCmetric)) %>%
-#  dplyr::select(pK) 
-#pK <- as.numeric(as.character(pK[[1]]))
+pK <- bcmvn_sen_pre %>% # select the pK that corresponds to max bcmvn to optimize doublet detection
+  filter(BCmetric == max(BCmetric)) %>%
+  dplyr::select(pK) 
+pK <- as.numeric(as.character(pK[[1]]))
 
 
 ## Homotypic Doublet Proportion Estimate -------------------------------------------------------------------------------------
@@ -169,11 +162,11 @@ nExp_poi.adj <- round(nExp_poi*(1-homotypic.prop))
 
 # run doubletFinder 
 sen_pre.seurat.filtered <- doubletFinder(sen_pre.seurat.filtered, 
-                                     PCs = 1:15, 
-                                     pN = 0.25, 
-                                     pK = 0.1, 
-                                     nExp = nExp_poi.adj,
-                                     reuse.pANN = FALSE, sct = FALSE)
+                                         PCs = 1:15, 
+                                         pN = 0.25, 
+                                         pK = pK, 
+                                         nExp = nExp_poi.adj,
+                                         reuse.pANN = FALSE, sct = FALSE)
 
 
 # visualize doublets
@@ -196,15 +189,15 @@ ctr_2_nodoublets
 
 
 
-# mcf7_12nap_1
+# mcf7_tis_1
 
 
-sen_pre.seurat = mcf7_12nap_1
+sen_pre.seurat = mcf7_tis_1
 sen_pre.seurat$mitoPercent <- PercentageFeatureSet(sen_pre.seurat, pattern = '^MT-')
 
 sen_pre.seurat.filtered <- subset(sen_pre.seurat, subset = nCount_RNA > 800 &
-         nFeature_RNA > 500 &
-         mitoPercent < 10)
+                                    nFeature_RNA > 500 &
+                                    mitoPercent < 10)
 
 sen_pre.seurat.filtered
 
@@ -230,7 +223,10 @@ ggplot(bcmvn_sen_pre, aes(pK, BCmetric, group = 1)) +
   geom_point() +
   geom_line()
 
-
+pK <- bcmvn_sen_pre %>% # select the pK that corresponds to max bcmvn to optimize doublet detection
+  filter(BCmetric == max(BCmetric)) %>%
+  dplyr::select(pK) 
+pK <- as.numeric(as.character(pK[[1]]))
 
 
 ## Homotypic Doublet Proportion Estimate -------------------------------------------------------------------------------------
@@ -242,11 +238,11 @@ nExp_poi.adj <- round(nExp_poi*(1-homotypic.prop))
 
 # run doubletFinder 
 sen_pre.seurat.filtered <- doubletFinder(sen_pre.seurat.filtered, 
-                                     PCs = 1:17, 
-                                     pN = 0.25, 
-                                     pK = 0.29, 
-                                     nExp = nExp_poi.adj,
-                                     reuse.pANN = FALSE, sct = FALSE)
+                                         PCs = 1:17, 
+                                         pN = 0.25, 
+                                         pK = pK, 
+                                         nExp = nExp_poi.adj,
+                                         reuse.pANN = FALSE, sct = FALSE)
 
 
 # visualize doublets
@@ -262,22 +258,22 @@ sen_pre.seurat.filtered_doublet <- sen_pre.seurat.filtered[,idx]
 #table(sen_pre.seurat.filtered_doublet@meta.data$DF.classifications_0.25_0.28_370)
 cells.doublet <- colnames(sen_pre.seurat.filtered_doublet)
 
-idx_d <- which(colnames(mcf7_12nap_1) %in% cells.doublet)
-mcf7_12nap_1_nodoublets <- mcf7_12nap_1[,-idx_d]
-mcf7_12nap_1_nodoublets
+idx_d <- which(colnames(mcf7_tis_1) %in% cells.doublet)
+mcf7_tis_1_nodoublets <- mcf7_tis_1[,-idx_d]
+mcf7_tis_1_nodoublets
 
 
 
 
-# mcf7_12nap_2
+# mcf7_tis_2
 
 
-sen_pre.seurat = mcf7_12nap_2
+sen_pre.seurat = mcf7_tis_2
 sen_pre.seurat$mitoPercent <- PercentageFeatureSet(sen_pre.seurat, pattern = '^MT-')
 
 sen_pre.seurat.filtered <- subset(sen_pre.seurat, subset = nCount_RNA > 800 &
-         nFeature_RNA > 500 &
-         mitoPercent < 10)
+                                    nFeature_RNA > 500 &
+                                    mitoPercent < 10)
 
 sen_pre.seurat.filtered
 
@@ -305,7 +301,10 @@ ggplot(bcmvn_sen_pre, aes(pK, BCmetric, group = 1)) +
   geom_point() +
   geom_line()
 
-
+pK <- bcmvn_sen_pre %>% # select the pK that corresponds to max bcmvn to optimize doublet detection
+  filter(BCmetric == max(BCmetric)) %>%
+  dplyr::select(pK) 
+pK <- as.numeric(as.character(pK[[1]]))
 
 
 ## Homotypic Doublet Proportion Estimate -------------------------------------------------------------------------------------
@@ -317,11 +316,11 @@ nExp_poi.adj <- round(nExp_poi*(1-homotypic.prop))
 
 # run doubletFinder 
 sen_pre.seurat.filtered <- doubletFinder(sen_pre.seurat.filtered, 
-                                     PCs = 1:19, 
-                                     pN = 0.25, 
-                                     pK = 0.13, 
-                                     nExp = nExp_poi.adj,
-                                     reuse.pANN = FALSE, sct = FALSE)
+                                         PCs = 1:19, 
+                                         pN = 0.25, 
+                                         pK = pK, 
+                                         nExp = nExp_poi.adj,
+                                         reuse.pANN = FALSE, sct = FALSE)
 
 
 # visualize doublets
@@ -337,19 +336,19 @@ sen_pre.seurat.filtered_doublet <- sen_pre.seurat.filtered[,idx]
 #table(sen_pre.seurat.filtered_doublet@meta.data$DF.classifications_0.25_0.28_370)
 cells.doublet <- colnames(sen_pre.seurat.filtered_doublet)
 
-idx_d <- which(colnames(mcf7_12nap_2) %in% cells.doublet)
-mcf7_12nap_2_nodoublets <- mcf7_12nap_2[,-idx_d]
-mcf7_12nap_2_nodoublets
+idx_d <- which(colnames(mcf7_tis_2) %in% cells.doublet)
+mcf7_tis_2_nodoublets <- mcf7_tis_2[,-idx_d]
+mcf7_tis_2_nodoublets
 
-# mcf7_repop1
+# mcf7_repop_1
 
 
-sen_pre.seurat = mcf7_repop1
+sen_pre.seurat = mcf7_repop_1
 sen_pre.seurat$mitoPercent <- PercentageFeatureSet(sen_pre.seurat, pattern = '^MT-')
 
 sen_pre.seurat.filtered <- subset(sen_pre.seurat, subset = nCount_RNA > 800 &
-         nFeature_RNA > 500 &
-         mitoPercent < 10)
+                                    nFeature_RNA > 500 &
+                                    mitoPercent < 10)
 
 sen_pre.seurat.filtered
 
@@ -377,7 +376,10 @@ ggplot(bcmvn_sen_pre, aes(pK, BCmetric, group = 1)) +
   geom_point() +
   geom_line()
 
-
+pK <- bcmvn_sen_pre %>% # select the pK that corresponds to max bcmvn to optimize doublet detection
+  filter(BCmetric == max(BCmetric)) %>%
+  dplyr::select(pK) 
+pK <- as.numeric(as.character(pK[[1]]))
 
 
 ## Homotypic Doublet Proportion Estimate -------------------------------------------------------------------------------------
@@ -389,11 +391,11 @@ nExp_poi.adj <- round(nExp_poi*(1-homotypic.prop))
 
 # run doubletFinder 
 sen_pre.seurat.filtered <- doubletFinder(sen_pre.seurat.filtered, 
-                                     PCs = 1:17, 
-                                     pN = 0.25, 
-                                     pK = 0.27, 
-                                     nExp = nExp_poi.adj,
-                                     reuse.pANN = FALSE, sct = FALSE)
+                                         PCs = 1:17, 
+                                         pN = 0.25, 
+                                         pK = pK, 
+                                         nExp = nExp_poi.adj,
+                                         reuse.pANN = FALSE, sct = FALSE)
 
 
 # visualize doublets
@@ -403,22 +405,22 @@ DimPlot(sen_pre.seurat.filtered, reduction = 'umap', group.by = "DF.classificati
 idx <- which(sen_pre.seurat.filtered$DF.classifications_0.25_0.27_325 == 'Doublet')
 n_d_repop1 = length(idx)
 sen_pre.seurat.filtered_doublet <- sen_pre.seurat.filtered[,idx]
-#table(sen_pre.seurat.filtered_doublet@meta.data$DF.classifications_0.25_0.28_370)
+
 cells.doublet <- colnames(sen_pre.seurat.filtered_doublet)
 
-idx_d <- which(colnames(mcf7_repop1) %in% cells.doublet)
-mcf7_repop1_nodoublets <- mcf7_repop1[,-idx_d]
-mcf7_repop1_nodoublets
+idx_d <- which(colnames(mcf7_repop_1) %in% cells.doublet)
+mcf7_repop_1_nodoublets <- mcf7_repop_1[,-idx_d]
+mcf7_repop_1_nodoublets
 
-# mcf7_repop2
+# mcf7_repop_2
 
 
-sen_pre.seurat = mcf7_repop2
+sen_pre.seurat = mcf7_repop_2
 sen_pre.seurat$mitoPercent <- PercentageFeatureSet(sen_pre.seurat, pattern = '^MT-')
 
 sen_pre.seurat.filtered <- subset(sen_pre.seurat, subset = nCount_RNA > 800 &
-         nFeature_RNA > 500 &
-         mitoPercent < 10)
+                                    nFeature_RNA > 500 &
+                                    mitoPercent < 10)
 
 sen_pre.seurat.filtered
 
@@ -447,7 +449,10 @@ ggplot(bcmvn_sen_pre, aes(pK, BCmetric, group = 1)) +
   geom_line()
 
 
-
+pK <- bcmvn_sen_pre %>% # select the pK that corresponds to max bcmvn to optimize doublet detection
+  filter(BCmetric == max(BCmetric)) %>%
+  dplyr::select(pK) 
+pK <- as.numeric(as.character(pK[[1]]))
 
 ## Homotypic Doublet Proportion Estimate -------------------------------------------------------------------------------------
 annotations <- sen_pre.seurat.filtered@meta.data$seurat_clusters
@@ -458,11 +463,11 @@ nExp_poi.adj <- round(nExp_poi*(1-homotypic.prop))
 
 # run doubletFinder 
 sen_pre.seurat.filtered <- doubletFinder(sen_pre.seurat.filtered, 
-                                     PCs = 1:15, 
-                                     pN = 0.25, 
-                                     pK = 0.08, 
-                                     nExp = nExp_poi.adj,
-                                     reuse.pANN = FALSE, sct = FALSE)
+                                         PCs = 1:15, 
+                                         pN = 0.25, 
+                                         pK = pK, 
+                                         nExp = nExp_poi.adj,
+                                         reuse.pANN = FALSE, sct = FALSE)
 
 
 # visualize doublets
@@ -478,19 +483,19 @@ sen_pre.seurat.filtered_doublet <- sen_pre.seurat.filtered[,idx]
 #table(sen_pre.seurat.filtered_doublet@meta.data$DF.classifications_0.25_0.28_370)
 cells.doublet <- colnames(sen_pre.seurat.filtered_doublet)
 
-idx_d <- which(colnames(mcf7_repop2) %in% cells.doublet)
-mcf7_repop2_nodoublets <- mcf7_repop2[,-idx_d]
-mcf7_repop2_nodoublets
+idx_d <- which(colnames(mcf7_repop_2) %in% cells.doublet)
+mcf7_repop_2_nodoublets <- mcf7_repop_2[,-idx_d]
+mcf7_repop_2_nodoublets
 
 # Doublet statistic
 
 
 d_p_ctr1 = ncol(ctr_1_nodoublets) / ncol(ctr_1)
 d_p_ctr2 = ncol(ctr_2_nodoublets) / ncol(ctr_2)
-d_p_sen1 = ncol(mcf7_12nap_1_nodoublets) / ncol(mcf7_12nap_1)
-d_p_sen2 = ncol(mcf7_12nap_2_nodoublets) / ncol(mcf7_12nap_2)
-d_p_repop1 = ncol(mcf7_repop1_nodoublets) / ncol(mcf7_repop1)
-d_p_repop2 = ncol(mcf7_repop2_nodoublets) / ncol(mcf7_repop2)
+d_p_sen1 = ncol(mcf7_tis_1_nodoublets) / ncol(mcf7_tis_1)
+d_p_sen2 = ncol(mcf7_tis_2_nodoublets) / ncol(mcf7_tis_2)
+d_p_repop1 = ncol(mcf7_repop_1_nodoublets) / ncol(mcf7_repop_1)
+d_p_repop2 = ncol(mcf7_repop_2_nodoublets) / ncol(mcf7_repop_2)
 
 df_doublet_stat = data.frame("sample" = c("ctr1", "ctr2", "sen1", "sen2", "repop1", "repop2"), 
                              "Percentage of singulets" = c(d_p_ctr1, d_p_ctr2,d_p_sen1, d_p_sen2, d_p_repop1, d_p_repop2))
@@ -510,12 +515,12 @@ ggplot(data=df_doublet_stat, aes(x=sample, y=Percentage.of.singulets)) +
 
 
 
-mcf7_proj <- merge(ctr_1_nodoublets, y = c(ctr_2_nodoublets, mcf7_12nap_1_nodoublets, mcf7_12nap_2_nodoublets, mcf7_repop1_nodoublets, mcf7_repop2_nodoublets), add.cell.ids = c("ctr_1", "ctr_2", "12nap_1", "12nap_2","repop1", "repop2"), project = "mcf7")
+mcf7_proj <- merge(ctr_1_nodoublets, y = c(ctr_2_nodoublets, mcf7_tis_1_nodoublets, mcf7_tis_2_nodoublets, mcf7_repop_1_nodoublets, mcf7_repop_2_nodoublets), add.cell.ids = c("MCF7_CTR_1", "MCF7_CTR_2", "MCF7_TIS_1", "MCF7_TIS_2" ,"MCF7_REPOP_1", "MCF7_REPOP_2"), project = "mcf7")
 
 
 # QC
 
-#Michochondrial genes are useful indicators of cell state.
+
 
 mcf7_proj[["percent.mt"]] <- PercentageFeatureSet(mcf7_proj, pattern = "^MT-")
 
