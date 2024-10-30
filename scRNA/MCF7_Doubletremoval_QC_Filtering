@@ -40,6 +40,8 @@ mcf7_repop_2 <- CreateSeuratObject(counts = mcf7_repop_2.data, project = "mcf7_r
 
 #Doublet removal
 
+# Control 1
+
 sen_pre.seurat = ctr_1
 sen_pre.seurat$mitoPercent <- PercentageFeatureSet(sen_pre.seurat, pattern = '^MT-')
 
