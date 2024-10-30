@@ -1,10 +1,7 @@
 library(cowplot)
 library(Seurat)
 library(ggplot2)
-library(SingleR)
 library(dplyr)
-library(celldex)
-library(RColorBrewer)
 library(SingleCellExperiment)
 library(DoubletFinder)
 library(monocle3)
@@ -14,20 +11,7 @@ library(monocle3)
 mcf7_proj_filtered = readRDS("mcf7_filtered.Rds")
 
 
-# Rename
-
-mcf7_proj_filtered$orig.ident[which(mcf7_proj_filtered$orig.ident == "ctr_1")] = "MCF7_CTR_1"
-mcf7_proj_filtered$orig.ident[which(mcf7_proj_filtered$orig.ident == "ctr_2")] = "MCF7_CTR_2"
-
-mcf7_proj_filtered$orig.ident[which(mcf7_proj_filtered$orig.ident == "mcf7_12nap_1")] = "MCF7_TIS_1"
-mcf7_proj_filtered$orig.ident[which(mcf7_proj_filtered$orig.ident == "mcf7_12nap_2")] = "MCF7_TIS_2"
-
-mcf7_proj_filtered$orig.ident[which(mcf7_proj_filtered$orig.ident == "mcf7_repop1")] = "MCF7_REPOP_1"
-mcf7_proj_filtered$orig.ident[which(mcf7_proj_filtered$orig.ident == "mcf7_repop2")] = "MCF7_REPOP_2"
-
 # Normalizing the data
-
-
 
 mcf7_proj_filtered <- NormalizeData(mcf7_proj_filtered, normalization.method = "LogNormalize", scale.factor = 10000)
 
