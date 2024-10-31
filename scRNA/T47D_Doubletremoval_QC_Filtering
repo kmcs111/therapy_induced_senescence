@@ -525,7 +525,7 @@ FeatureScatter(t47d_proj, feature1 = "percent.rb", feature2 = "percent.mt")
 
 # Filtering step
 
-t47d_proj_filtered <- subset(t47d_proj, subset = nFeature_RNA > 1000 & nCount_RNA > 3000 & nCount_RNA < 20000 & percent.mt < 10)
+t47d_proj_filtered <- subset(t47d_proj, subset = nFeature_RNA > 2000 & nCount_RNA > 4000 & nCount_RNA < 30000 & percent.mt < 10)
 
 # Save
 
