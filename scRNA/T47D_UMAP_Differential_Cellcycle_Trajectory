@@ -1,100 +1,51 @@
 library(cowplot)
 library(Seurat)
 library(ggplot2)
-library(SingleR)
 library(dplyr)
-library(celldex)
-library(RColorBrewer)
 library(SingleCellExperiment)
 library(DoubletFinder)
+library(monocle3)
 
-# Load filtered data
-
-t47d_proj_filtered = readRDS("t47d_filtered.Rds")
-
-# Rename
-
-t47d_proj_filtered$orig.ident[which(t47d_proj_filtered$orig.ident == "ctr_1")] = "T47D_CTR_1"
-t47d_proj_filtered$orig.ident[which(t47d_proj_filtered$orig.ident == "ctr_2")] = "T47D_CTR_2"
-
-t47d_proj_filtered$orig.ident[which(t47d_proj_filtered$orig.ident == "t47d_sen_1")] = "T47D_TIS_1"
-t47d_proj_filtered$orig.ident[which(t47d_proj_filtered$orig.ident == "t47d_sen_2")] = "T47D_TIS_2"
-
-t47d_proj_filtered$orig.ident[which(t47d_proj_filtered$orig.ident == "t47d_repop1")] = "T47D_REPOP_1"
-t47d_proj_filtered$orig.ident[which(t47d_proj_filtered$orig.ident == "t47d_repop2")] = "T47D_REPOP_2"
+#Load filtered data
+prefix = getwd()
+t47d_proj_filtered = readRDS(paste0(prefix,"/t47d_filtered.Rds"))
 
 # Normalizing the data
-
-
-
 t47d_proj_filtered <- NormalizeData(t47d_proj_filtered, normalization.method = "LogNormalize", scale.factor = 10000)
 
 # Discovers the most variable features
-
-
 t47d_proj_filtered <- FindVariableFeatures(t47d_proj_filtered, selection.method = "vst", nfeatures = 2000)
 
-
-
 # Scale the data
-
-
 all.genes <- rownames(t47d_proj_filtered)
 t47d_proj_filtered <- ScaleData(t47d_proj_filtered, features = all.genes)
 
-
 # PCA analysis and figures
-
-
-
 t47d_proj_filtered <- RunPCA(t47d_proj_filtered, features = VariableFeatures(object = t47d_proj_filtered))
 
-
-
-
-
-
 # Clustering, UMAP, cellcycle
-
 ElbowPlot(t47d_proj_filtered, reduction = "pca")
-
 t47d_proj_filtered <- FindNeighbors(t47d_proj_filtered, dims = 1:15, reduction = "pca")
-
-
 t47d_proj_filtered <- FindClusters(t47d_proj_filtered, resolution = 0.5, reduction = "pca")
-
-
 t47d_proj_filtered <- RunUMAP(t47d_proj_filtered, dims = 1:15, verbose = F, reduction = "pca")
-
-
-
-
 DimPlot(t47d_proj_filtered,label.size = 4,repel = T,label = T, reduction = "umap")
-
 
 # Cell cycle on UMAP
 t47d_proj_filtered = JoinLayers(t47d_proj_filtered)
-
-
 s.genes <- cc.genes.updated.2019$s.genes
 g2m.genes <- cc.genes.updated.2019$g2m.genes
-
-
 t47d_proj_filtered_cyclecorrection <- CellCycleScoring(t47d_proj_filtered, s.features = s.genes, g2m.features = g2m.genes, set.ident = TRUE)
-
-
 t47d_proj_filtered_cyclecorrection <- RunPCA(t47d_proj_filtered_cyclecorrection, features = c(s.genes, g2m.genes))
 DimPlot(t47d_proj_filtered_cyclecorrection,cols = c('G1' = '#00BA38', 'G2M' = '#F8766D', 'S' = '#619CFF'),order = c("G1", "S", "G2"))
 
 
 # For differential analysis the FidMarkers function
-
-Idents(mcf7_proj_filtered) = mcf7_proj_filtered$orig.ident
-diff_genes <- FindMarkers(mcf7_proj_filtered, ident.1 = c("T47D_TIS_1"  , "T47D_TIS_2"), ident.2 = c("T47D_CTR_1" ,  "T47D_CTR_2" ))
+Idents(t47d_proj_filtered) = t47d_proj_filtered$orig.ident
+diff_genes <- FindMarkers(t47d_proj_filtered, ident.1 = c("T47D_TIS_1"  , "T47D_TIS_2"), ident.2 = c("T47D_CTR_1" ,  "T47D_CTR_2" ))
 head(diff_genes, n = 20)
 
 # T47D CTR and TIS Monocle3
-
+Idents(t47d_proj_filtered) = t47d_proj_filtered$seurat_clusters
 t47d_proj_filtered_test_ctr_sen <- subset(t47d_proj_filtered, subset=orig.ident %in% c("T47D_CTR_1" ,  "T47D_CTR_2" ,  "T47D_TIS_1"  , "T47D_TIS_2" ))
 
 
@@ -134,6 +85,26 @@ get_earliest_principal_node <- function(cds, time_bin="7"){
 get_earliest_principal_node(cds)
 
 cds <- order_cells(cds, root_pr_nodes=get_earliest_principal_node(cds))
+
+pltc  = plot_cells(cds,
+           color_cells_by = 'pseudotime',
+           label_groups_by_cluster = FALSE,
+           label_branch_points = FALSE,
+           label_roots = FALSE,
+           label_leaves = FALSE)
+
+png("t47d_traj_ctr_to_sen.png", width = 8, height = 6, units = 'in', res = 720)
+pltc & 
+  theme(text = element_text( size = 35),
+        axis.text.x=element_text( size=30),
+         axis.text.y=element_text( size=30),
+        axis.title = element_text(size=35),
+        axis.title.y.right = element_text(size = 25),
+        legend.text=element_text(size=35),
+        legend.title=element_text(size=25),
+        axis.line = element_line(size=2),
+        legend.position = "None") 
+dev.off()
 
 
 cds$monocle3_pseudotime <- pseudotime(cds)
@@ -196,6 +167,25 @@ get_earliest_principal_node(cds)
 
 cds <- order_cells(cds, root_pr_nodes=get_earliest_principal_node(cds))
 
+pltc = plot_cells(cds,
+           color_cells_by = 'pseudotime',
+           label_groups_by_cluster = FALSE,
+           label_branch_points = FALSE,
+           label_roots = FALSE,
+           label_leaves = FALSE)
+
+png("t47d_traj_sen_to_repop.png", width = 8, height = 6, units = 'in', res = 720)
+pltc & 
+  theme(text = element_text( size = 35),
+        axis.text.x=element_text( size=30),
+         axis.text.y=element_text( size=30),
+        axis.title = element_text(size=35),
+        axis.title.y.right = element_text(size = 25),
+        legend.text=element_text(size=35),
+        legend.title=element_text(size=25),
+        axis.line = element_line(size=2),
+        legend.position = "None") 
+dev.off()
 
 
 cds$monocle3_pseudotime <- pseudotime(cds)
