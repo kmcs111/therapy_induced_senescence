@@ -8,76 +8,44 @@ library(monocle3)
 
 #Load filtered data
 prefix = getwd()
-mcf7_proj_filtered = readRDS(paste0(prefix,"mcf7_filtered.Rds"))
+mcf7_proj_filtered = readRDS(paste0(prefix,"/mcf7_filtered.Rds"))
 
 
 # Normalizing the data
-
 mcf7_proj_filtered <- NormalizeData(mcf7_proj_filtered, normalization.method = "LogNormalize", scale.factor = 10000)
 
 # Discovers the most variable features
-
-
 mcf7_proj_filtered <- FindVariableFeatures(mcf7_proj_filtered, selection.method = "vst", nfeatures = 2000)
 
-
-
 # Scale the data
-
-
 all.genes <- rownames(mcf7_proj_filtered)
 mcf7_proj_filtered <- ScaleData(mcf7_proj_filtered, features = all.genes)
 
 
 # PCA analysis and figures
-
-
-
 mcf7_proj_filtered <- RunPCA(mcf7_proj_filtered, features = VariableFeatures(object = mcf7_proj_filtered))
 
 
-
-
-
-
 # Clustering, UMAP, cellcycle
-
 ElbowPlot(mcf7_proj_filtered, reduction = "pca")
-
 mcf7_proj_filtered <- FindNeighbors(mcf7_proj_filtered, dims = 1:15, reduction = "pca")
-
-
 mcf7_proj_filtered <- FindClusters(mcf7_proj_filtered, resolution = 0.3, reduction = "pca")
-
-
 mcf7_proj_filtered <- RunUMAP(mcf7_proj_filtered, dims = 1:15, verbose = F, reduction = "pca")
-
-
-
-
 DimPlot(mcf7_proj_filtered,label.size = 4,repel = T,label = T, reduction = "umap")
 
 
 # Cell cycle on UMAP
 mcf7_proj_filtered = JoinLayers(mcf7_proj_filtered)
-
 s.genes <- cc.genes.updated.2019$s.genes
 g2m.genes <- cc.genes.updated.2019$g2m.genes
 
-
 mcf7_proj_filtered_cyclecorrection <- CellCycleScoring(mcf7_proj_filtered, s.features = s.genes, g2m.features = g2m.genes, set.ident = TRUE)
-
 
 mcf7_proj_filtered_cyclecorrection <- RunPCA(mcf7_proj_filtered_cyclecorrection, features = c(s.genes, g2m.genes))
 DimPlot(mcf7_proj_filtered_cyclecorrection,cols = c('G1' = '#00BA38', 'G2M' = '#F8766D', 'S' = '#619CFF'),order = c("G1", "S", "G2"))
 
 
-
-
-
-
 # For differential analysis the FidMarkers function
-
 Idents(mcf7_proj_filtered) = mcf7_proj_filtered$orig.ident
 diff_genes <- FindMarkers(mcf7_proj_filtered, ident.1 = c("MCF7_TIS_1"  , "MCF7_TIS_2"), ident.2 = c("MCF7_CTR_1" ,  "MCF7_CTR_2" ))
 head(diff_genes, n = 20)
@@ -85,10 +53,10 @@ head(diff_genes, n = 20)
 
 
 # Trajectory CTR and TIS
-
 mcf7_proj_filtered_test_ctr_sen <- subset(mcf7_proj_filtered, subset=orig.ident %in% c("MCF7_CTR_1" ,  "MCF7_CTR_2" ,  "MCF7_TIS_1"  , "MCF7_TIS_2" ))
+Idents(mcf7_proj_filtered_test_ctr_sen) = mcf7_proj_filtered_test_ctr_sen$seurat_clusters
 
-
+# Removing some outliner cells
 umaps = mcf7_proj_filtered_test_ctr_sen@reductions$umap@cell.embeddings
 umaps_filterout = umaps[which(umaps[,1] > 0 & umaps[,2] > 0.5),]
 umaps_filterout_bc = row.names(umaps_filterout)
@@ -122,7 +90,7 @@ cds <- learn_graph(cds, use_partition = FALSE)
 
 
 get_earliest_principal_node <- function(cds, time_bin="5"){
-  cell_ids <- which(colData(cds)[, "ident"] == 5)
+  cell_ids <- which(colData(cds)[, "ident"] == time_bin)
   
   closest_vertex <-
     cds@principal_graph_aux[["UMAP"]]$pr_graph_cell_proj_closest_vertex
@@ -136,16 +104,34 @@ get_earliest_principal_node <- function(cds, time_bin="5"){
 
 get_earliest_principal_node(cds)
 
-#cds <- order_cells(cds, reduction_method = 'UMAP', root_cells = NULL, root_cells = get_earliest_principal_node(cds))
 cds <- order_cells(cds, root_pr_nodes=get_earliest_principal_node(cds))
 
+pltc = plot_cells(cds,
+           color_cells_by = 'pseudotime',
+           label_groups_by_cluster = FALSE,
+           label_branch_points = FALSE,
+           label_roots = FALSE,
+           label_leaves = FALSE) + ylim(-6,11) + xlim(-10,12)
+
+
+png("mcf7_traj_ctr_to_sen.png", width = 8, height = 6, units = 'in', res = 720)
+pltc & 
+  theme(text = element_text( size = 35),
+        axis.text.x=element_text( size=30),
+         axis.text.y=element_text( size=30),
+        axis.title = element_text(size=35),
+        axis.title.y.right = element_text(size = 25),
+        legend.text=element_text(size=35),
+        legend.title=element_text(size=25),
+        axis.line = element_line(size=2),
+        legend.position = "None") 
+dev.off()
 
 
 cds$monocle3_pseudotime <- pseudotime(cds)
 data.pseudo <- as.data.frame(colData(cds))
 
 ggplot(data.pseudo, aes(monocle3_pseudotime, seurat_clusters, fill = seurat_clusters)) + geom_boxplot()
-
 
 
 deg <- graph_test(cds, neighbor_graph = "principal_graph")
@@ -158,9 +144,10 @@ write.table(deg, "traj_deg_mcf7_ctr_to_sen.tsv", sep = "\t",
 
 # Trajectory REPOP and TIS
 
-mcf7_proj_filtered_test_sen_to_repop <- subset(mcf7_proj_filtered, subset=orig.ident %in% c("mcf7_REPOP_1", "mcf7_REPOP_2" ,       "mcf7_TIS_1", "mcf7_TIS_2" ))
+mcf7_proj_filtered_test_sen_to_repop <- subset(mcf7_proj_filtered, subset=orig.ident %in% c("MCF7_REPOP_1", "MCF7_REPOP_2" ,       "MCF7_TIS_1", "MCF7_TIS_2" ))
+Idents(mcf7_proj_filtered_test_sen_to_repop) = mcf7_proj_filtered_test_sen_to_repop$seurat_clusters
 
-
+# Removing some outliner cells
 umaps = mcf7_proj_filtered_test_sen_to_repop@reductions$umap@cell.embeddings
 umaps_filterout = umaps[which(umaps[,1] > 0 & umaps[,2] < -2),]
 umaps_filterout_bc = row.names(umaps_filterout)
@@ -196,7 +183,7 @@ cds <- learn_graph(cds, use_partition = FALSE)
 
 
 get_earliest_principal_node <- function(cds, time_bin="7"){
-  cell_ids <- which(colData(cds)[, "ident"] == 7)
+  cell_ids <- which(colData(cds)[, "ident"] == time_bin)
 
   closest_vertex <-
   cds@principal_graph_aux[["UMAP"]]$pr_graph_cell_proj_closest_vertex
@@ -213,7 +200,26 @@ get_earliest_principal_node(cds)
 
 cds <- order_cells(cds, root_pr_nodes=get_earliest_principal_node(cds))
 
+pltc = plot_cells(cds,
+           color_cells_by = 'pseudotime',
+           label_groups_by_cluster = FALSE,
+           label_branch_points = FALSE,
+           label_roots = FALSE,
+           label_leaves = FALSE) + ylim(-6,11) + xlim(-10,12)
 
+
+png("mcf7_traj_sen_to_repop.png", width = 8, height = 6, units = 'in', res = 720)
+pltc & 
+  theme(text = element_text( size = 35),
+        axis.text.x=element_text( size=30),
+         axis.text.y=element_text( size=30),
+        axis.title = element_text(size=35),
+        axis.title.y.right = element_text(size = 25),
+        legend.text=element_text(size=35),
+        legend.title=element_text(size=25),
+        axis.line = element_line(size=2),
+        legend.position = "None") 
+dev.off()
 
 cds$monocle3_pseudotime <- pseudotime(cds)
 data.pseudo <- as.data.frame(colData(cds))
