@@ -531,16 +531,16 @@ mcf7_proj[["percent.rb"]] <- PercentageFeatureSet(mcf7_proj, pattern = "^RP[SL]"
 
 
 
-VlnPlot(mcf7_proj, split.by = mcf7_proj$orig.ident ,features = c("nFeature_RNA"), ncol = 1, pt.size = 0.1) & 
+VlnPlot(mcf7_proj ,features = c("nFeature_RNA"), ncol = 1, pt.size = 0.1) & 
   theme(plot.title = element_text(size=10))
 
-VlnPlot(mcf7_proj, split.by = mcf7_proj$orig.ident,features = c("nCount_RNA"),ncol = 1,pt.size = 0.1) & 
+VlnPlot(mcf7_proj,features = c("nCount_RNA"),ncol = 1,pt.size = 0.1) & 
   theme(plot.title = element_text(size=10))
 
-VlnPlot(mcf7_proj, split.by = mcf7_proj$orig.ident,features = c("percent.mt"),ncol = 1,pt.size = 0.1) & 
+VlnPlot(mcf7_proj, features = c("percent.mt"),ncol = 1,pt.size = 0.1) & 
   theme(plot.title = element_text(size=10))
 
-VlnPlot(mcf7_proj, split.by = mcf7_proj$orig.ident,features = c("percent.rb"),ncol = 1,pt.size = 0.1) & 
+VlnPlot(mcf7_proj, features = c("percent.rb"),ncol = 1,pt.size = 0.1) & 
   theme(plot.title = element_text(size=10))
 
 
