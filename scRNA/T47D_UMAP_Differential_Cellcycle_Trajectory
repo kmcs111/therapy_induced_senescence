@@ -25,9 +25,9 @@ t47d_proj_filtered <- RunPCA(t47d_proj_filtered, features = VariableFeatures(obj
 
 # Clustering, UMAP, cellcycle
 ElbowPlot(t47d_proj_filtered, reduction = "pca")
-t47d_proj_filtered <- FindNeighbors(t47d_proj_filtered, dims = 1:15, reduction = "pca")
+t47d_proj_filtered <- FindNeighbors(t47d_proj_filtered, dims = 1:20, reduction = "pca")
 t47d_proj_filtered <- FindClusters(t47d_proj_filtered, resolution = 0.5, reduction = "pca")
-t47d_proj_filtered <- RunUMAP(t47d_proj_filtered, dims = 1:15, verbose = F, reduction = "pca")
+t47d_proj_filtered <- RunUMAP(t47d_proj_filtered, dims = 1:20, verbose = F, reduction = "pca")
 DimPlot(t47d_proj_filtered,label.size = 4,repel = T,label = T, reduction = "umap")
 
 # Cell cycle on UMAP
