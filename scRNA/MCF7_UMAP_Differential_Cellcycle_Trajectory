@@ -7,8 +7,8 @@ library(DoubletFinder)
 library(monocle3)
 
 #Load filtered data
-
-mcf7_proj_filtered = readRDS("mcf7_filtered.Rds")
+prefix = getwd()
+mcf7_proj_filtered = readRDS(paste0(prefix,"mcf7_filtered.Rds"))
 
 
 # Normalizing the data
