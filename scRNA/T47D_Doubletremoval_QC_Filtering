@@ -1,45 +1,38 @@
-
-library(cowplot)
 library(Seurat)
 library(ggplot2)
-library(SingleR)
 library(dplyr)
-library(celldex)
-library(RColorBrewer)
 library(SingleCellExperiment)
 library(DoubletFinder)
+library(monocle3)
 
 
 
-# Load dataset
-ctr_1.data <- Read10X(data.dir = "t47d_ctr1/")
-# Initialize the Seurat object with the raw (non-normalized data).
-ctr_1 <- CreateSeuratObject(counts = ctr_1.data, project = "ctr_1", min.cells = 3, min.features = 200)
+# Load the  dataset
+
+prefix = getwd()
+
+ctr_1.data <- Read10X(data.dir = paste0(prefix, "/t47d_ctr_1"))
+ctr_1 <- CreateSeuratObject(counts = ctr_1.data, project = "T47D_CTR_1", min.cells = 3, min.features = 200)
 
 
-ctr_2.data <- Read10X(data.dir = "t47d_ctr2/")
-# Initialize the Seurat object with the raw (non-normalized data).
-ctr_2 <- CreateSeuratObject(counts = ctr_2.data, project = "ctr_2", min.cells = 3, min.features = 200)
+ctr_2.data <- Read10X(data.dir = paste0(prefix, "/t47d_ctr_2"))
+ctr_2 <- CreateSeuratObject(counts = ctr_2.data, project = "T47D_CTR_2", min.cells = 3, min.features = 200)
 
 
-t47d_12nap_1.data <- Read10X(data.dir = "t47d_sen1/")
-# Initialize the Seurat object with the raw (non-normalized data).
-t47d_12nap_1 <- CreateSeuratObject(counts = t47d_12nap_1.data, project = "t47d_sen_1", min.cells = 3, min.features = 200)
+t47d_tis_1.data <- Read10X(data.dir = paste0(prefix, "/t47d_tis_1"))
+t47d_tis_1 <- CreateSeuratObject(counts = t47d_tis_1.data, project = "T47D_TIS_1", min.cells = 3, min.features = 200)
 
 
-t47d_12nap_2.data <- Read10X(data.dir = "t47d_sen2/")
-# Initialize the Seurat object with the raw (non-normalized data).
-t47d_12nap_2 <- CreateSeuratObject(counts = t47d_12nap_2.data, project = "t47d_sen_2", min.cells = 3, min.features = 200)
+t47d_tis_2.data <- Read10X(data.dir = paste0(prefix, "/t47d_tis_2"))
+t47d_tis_2 <- CreateSeuratObject(counts = t47d_tis_2.data, project = "T47D_TIS_2", min.cells = 3, min.features = 200)
 
 
-t47d_repop1.data <- Read10X(data.dir = "t47d_repop1/")
-# Initialize the Seurat object with the raw (non-normalized data).
-t47d_repop1 <- CreateSeuratObject(counts = t47d_repop1.data, project = "t47d_repop1", min.cells = 3, min.features = 200)
+t47d_repop_1.data <- Read10X(data.dir = paste0(prefix, "/t47d_repop_1"))
+t47d_repop_1 <- CreateSeuratObject(counts = t47d_repop_1.data, project = "T47D_REPOP_1", min.cells = 3, min.features = 200)
 
 
-t47d_repop2.data <- Read10X(data.dir = "t47d_repop2/")
-# Initialize the Seurat object with the raw (non-normalized data).
-t47d_repop2 <- CreateSeuratObject(counts = t47d_repop2.data, project = "t47d_repop2", min.cells = 3, min.features = 200)
+t47d_repop_2.data <- Read10X(data.dir = paste0(prefix, "/t47d_repop_2"))
+t47d_repop_2 <- CreateSeuratObject(counts = t47d_repop_2.data, project = "T47D_REPOP_2", min.cells = 3, min.features = 200)
 
 
 
@@ -53,8 +46,8 @@ sen_pre.seurat = ctr_1
 sen_pre.seurat$mitoPercent <- PercentageFeatureSet(sen_pre.seurat, pattern = '^MT-')
 
 sen_pre.seurat.filtered <- subset(sen_pre.seurat, subset = nCount_RNA > 800 &
-                                 nFeature_RNA > 500 &
-                                 mitoPercent < 10)
+                                    nFeature_RNA > 500 &
+                                    mitoPercent < 10)
 
 
 # pre-process standard workflow
@@ -95,23 +88,22 @@ nExp_poi.adj <- round(nExp_poi*(1-homotypic.prop))
 
 # run doubletFinder 
 sen_pre.seurat.filtered <- doubletFinder(sen_pre.seurat.filtered, 
-                                      PCs = 1:16, 
-                                      pN = 0.25, 
-                                      pK = pK, 
-                                      nExp = nExp_poi.adj,
-                                      reuse.pANN = FALSE, sct = FALSE)
+                                         PCs = 1:16, 
+                                         pN = 0.25, 
+                                         pK = pK, 
+                                         nExp = nExp_poi.adj,
+                                         reuse.pANN = FALSE, sct = FALSE)
 
 
 # visualize doublets
-DimPlot(sen_pre.seurat.filtered, reduction = 'umap', group.by = "DF.classifications_0.25_0.3_394")
+DimPlot(sen_pre.seurat.filtered, reduction = 'umap', group.by = "DF.classifications_0.25_0.3_387")
 
 # number of singlets and doublets
-table(sen_pre.seurat.filtered@meta.data$DF.classifications_0.25_0.3_394)
+table(sen_pre.seurat.filtered@meta.data$DF.classifications_0.25_0.3_387)
 
-idx <- which(sen_pre.seurat.filtered$DF.classifications_0.25_0.3_394 == 'Doublet')
+idx <- which(sen_pre.seurat.filtered$DF.classifications_0.25_0.3_387 == 'Doublet')
 n_d_ctr1 = length(idx)
 sen_pre.seurat.filtered_doublet <- sen_pre.seurat.filtered[,idx]
-#table(sen_pre.seurat.filtered_doublet@meta.data$DF.classifications_0.25_0.28_370)
 cells.doublet <- colnames(sen_pre.seurat.filtered_doublet)
 
 idx_d <- which(colnames(ctr_1) %in% cells.doublet)
@@ -124,8 +116,8 @@ sen_pre.seurat = ctr_2
 sen_pre.seurat$mitoPercent <- PercentageFeatureSet(sen_pre.seurat, pattern = '^MT-')
 
 sen_pre.seurat.filtered <- subset(sen_pre.seurat, subset = nCount_RNA > 800 &
-                                 nFeature_RNA > 500 &
-                                 mitoPercent < 10)
+                                    nFeature_RNA > 500 &
+                                    mitoPercent < 10)
 
 sen_pre.seurat.filtered
 
@@ -166,37 +158,36 @@ nExp_poi.adj <- round(nExp_poi*(1-homotypic.prop))
 
 # run doubletFinder 
 sen_pre.seurat.filtered <- doubletFinder(sen_pre.seurat.filtered, 
-                                      PCs = 1:17, 
-                                      pN = 0.25, 
-                                      pK = pK, 
-                                      nExp = nExp_poi.adj,
-                                      reuse.pANN = FALSE, sct = FALSE)
+                                         PCs = 1:17, 
+                                         pN = 0.25, 
+                                         pK = pK, 
+                                         nExp = nExp_poi.adj,
+                                         reuse.pANN = FALSE, sct = FALSE)
 
 
 # visualize doublets
-DimPlot(sen_pre.seurat.filtered, reduction = 'umap', group.by = "DF.classifications_0.25_0.29_344")
+DimPlot(sen_pre.seurat.filtered, reduction = 'umap', group.by = "DF.classifications_0.25_0.3_344")
 
 # number of singlets and doublets
-table(sen_pre.seurat.filtered@meta.data$DF.classifications_0.25_0.29_344)
+table(sen_pre.seurat.filtered@meta.data$DF.classifications_0.25_0.3_344)
 
-idx <- which(sen_pre.seurat.filtered$DF.classifications_0.25_0.29_344 == 'Doublet')
+idx <- which(sen_pre.seurat.filtered$DF.classifications_0.25_0.3_344 == 'Doublet')
 n_d_ctr2 = length(idx)
 sen_pre.seurat.filtered_doublet <- sen_pre.seurat.filtered[,idx]
-#table(sen_pre.seurat.filtered_doublet@meta.data$DF.classifications_0.25_0.28_370)
 cells.doublet <- colnames(sen_pre.seurat.filtered_doublet)
 
 idx_d <- which(colnames(ctr_2) %in% cells.doublet)
 ctr_2_nodoublets <- ctr_2[,-idx_d]
 ctr_2_nodoublets
 
-# t47d_12nap_1
+# t47d_tis_1
 
-sen_pre.seurat = t47d_12nap_1
+sen_pre.seurat = t47d_tis_1
 sen_pre.seurat$mitoPercent <- PercentageFeatureSet(sen_pre.seurat, pattern = '^MT-')
 
 sen_pre.seurat.filtered <- subset(sen_pre.seurat, subset = nCount_RNA > 800 &
-                                 nFeature_RNA > 500 &
-                                 mitoPercent < 10)
+                                    nFeature_RNA > 500 &
+                                    mitoPercent < 10)
 
 sen_pre.seurat.filtered
 
@@ -237,35 +228,34 @@ nExp_poi.adj <- round(nExp_poi*(1-homotypic.prop))
 
 # run doubletFinder 
 sen_pre.seurat.filtered <- doubletFinder(sen_pre.seurat.filtered, 
-                                      PCs = 1:12, 
-                                      pN = 0.25, 
-                                      pK = pK, 
-                                      nExp = nExp_poi.adj,
-                                      reuse.pANN = FALSE, sct = FALSE)
+                                         PCs = 1:12, 
+                                         pN = 0.25, 
+                                         pK = pK, 
+                                         nExp = nExp_poi.adj,
+                                         reuse.pANN = FALSE, sct = FALSE)
 
 
 # visualize doublets
-DimPlot(sen_pre.seurat.filtered, reduction = 'umap', group.by = "DF.classifications_0.25_0.16_987")
+DimPlot(sen_pre.seurat.filtered, reduction = 'umap', group.by = "DF.classifications_0.25_0.18_987")
 
 
-idx <- which(sen_pre.seurat.filtered$DF.classifications_0.25_0.16_987 == 'Doublet')
+idx <- which(sen_pre.seurat.filtered$DF.classifications_0.25_0.18_987 == 'Doublet')
 n_d_sen1 = length(idx)
 sen_pre.seurat.filtered_doublet <- sen_pre.seurat.filtered[,idx]
-#table(sen_pre.seurat.filtered_doublet@meta.data$DF.classifications_0.25_0.28_370)
 cells.doublet <- colnames(sen_pre.seurat.filtered_doublet)
 
-idx_d <- which(colnames(t47d_12nap_1) %in% cells.doublet)
-t47d_12nap_1_nodoublets <- t47d_12nap_1[,-idx_d]
-t47d_12nap_1_nodoublets
+idx_d <- which(colnames(t47d_tis_1) %in% cells.doublet)
+t47d_tis_1_nodoublets <- t47d_tis_1[,-idx_d]
+t47d_tis_1_nodoublets
 
-# t47d_12nap_2
+# t47d_tis_2
 
-sen_pre.seurat = t47d_12nap_2
+sen_pre.seurat = t47d_tis_2
 sen_pre.seurat$mitoPercent <- PercentageFeatureSet(sen_pre.seurat, pattern = '^MT-')
 
 sen_pre.seurat.filtered <- subset(sen_pre.seurat, subset = nCount_RNA > 800 &
-                                 nFeature_RNA > 500 &
-                                 mitoPercent < 10)
+                                    nFeature_RNA > 500 &
+                                    mitoPercent < 10)
 
 sen_pre.seurat.filtered
 
@@ -306,11 +296,11 @@ nExp_poi.adj <- round(nExp_poi*(1-homotypic.prop))
 
 # run doubletFinder 
 sen_pre.seurat.filtered <- doubletFinder(sen_pre.seurat.filtered, 
-                                      PCs = 1:15, 
-                                      pN = 0.25, 
-                                      pK = pK, 
-                                      nExp = nExp_poi.adj,
-                                      reuse.pANN = FALSE, sct = FALSE)
+                                         PCs = 1:15, 
+                                         pN = 0.25, 
+                                         pK = pK, 
+                                         nExp = nExp_poi.adj,
+                                         reuse.pANN = FALSE, sct = FALSE)
 
 
 # visualize doublets
@@ -323,18 +313,18 @@ sen_pre.seurat.filtered_doublet <- sen_pre.seurat.filtered[,idx]
 #table(sen_pre.seurat.filtered_doublet@meta.data$DF.classifications_0.25_0.28_370)
 cells.doublet <- colnames(sen_pre.seurat.filtered_doublet)
 
-idx_d <- which(colnames(t47d_12nap_2) %in% cells.doublet)
-t47d_12nap_2_nodoublets <- t47d_12nap_2[,-idx_d]
-t47d_12nap_2_nodoublets
+idx_d <- which(colnames(t47d_tis_2) %in% cells.doublet)
+t47d_tis_2_nodoublets <- t47d_tis_2[,-idx_d]
+t47d_tis_2_nodoublets
 
-# t47d_repop1
+# t47d_repop_1
 
-sen_pre.seurat = t47d_repop1
+sen_pre.seurat = t47d_repop_1
 sen_pre.seurat$mitoPercent <- PercentageFeatureSet(sen_pre.seurat, pattern = '^MT-')
 
 sen_pre.seurat.filtered <- subset(sen_pre.seurat, subset = nCount_RNA > 800 &
-                                 nFeature_RNA > 500 &
-                                 mitoPercent < 10)
+                                    nFeature_RNA > 500 &
+                                    mitoPercent < 10)
 
 sen_pre.seurat.filtered
 
@@ -376,11 +366,11 @@ nExp_poi.adj <- round(nExp_poi*(1-homotypic.prop))
 
 # run doubletFinder 
 sen_pre.seurat.filtered <- doubletFinder(sen_pre.seurat.filtered, 
-                                      PCs = 1:17, 
-                                      pN = 0.25, 
-                                      pK = pK, 
-                                      nExp = nExp_poi.adj,
-                                      reuse.pANN = FALSE, sct = FALSE)
+                                         PCs = 1:17, 
+                                         pN = 0.25, 
+                                         pK = pK, 
+                                         nExp = nExp_poi.adj,
+                                         reuse.pANN = FALSE, sct = FALSE)
 
 
 # visualize doublets
@@ -396,21 +386,18 @@ sen_pre.seurat.filtered_doublet <- sen_pre.seurat.filtered[,idx]
 #table(sen_pre.seurat.filtered_doublet@meta.data$DF.classifications_0.25_0.28_370)
 cells.doublet <- colnames(sen_pre.seurat.filtered_doublet)
 
-idx_d <- which(colnames(t47d_repop1) %in% cells.doublet)
-t47d_repop1_nodoublets <- t47d_repop1[,-idx_d]
-t47d_repop1_nodoublets
+idx_d <- which(colnames(t47d_repop_1) %in% cells.doublet)
+t47d_repop_1_nodoublets <- t47d_repop_1[,-idx_d]
+t47d_repop_1_nodoublets
 
-# t47d_repop2
+# t47d_repop_2
 
-
-t47d_repop2
-
-sen_pre.seurat = t47d_repop2
+sen_pre.seurat = t47d_repop_2
 sen_pre.seurat$mitoPercent <- PercentageFeatureSet(sen_pre.seurat, pattern = '^MT-')
 
 sen_pre.seurat.filtered <- subset(sen_pre.seurat, subset = nCount_RNA > 800 &
-                                 nFeature_RNA > 500 &
-                                 mitoPercent < 10)
+                                    nFeature_RNA > 500 &
+                                    mitoPercent < 10)
 
 sen_pre.seurat.filtered
 
@@ -453,11 +440,11 @@ nExp_poi.adj <- round(nExp_poi*(1-homotypic.prop))
 
 # run doubletFinder 
 sen_pre.seurat.filtered <- doubletFinder(sen_pre.seurat.filtered, 
-                                      PCs = 1:17, 
-                                      pN = 0.25, 
-                                      pK = pK, 
-                                      nExp = nExp_poi.adj,
-                                      reuse.pANN = FALSE, sct = FALSE)
+                                         PCs = 1:17, 
+                                         pN = 0.25, 
+                                         pK = pK, 
+                                         nExp = nExp_poi.adj,
+                                         reuse.pANN = FALSE, sct = FALSE)
 
 
 # visualize doublets
@@ -472,19 +459,19 @@ sen_pre.seurat.filtered_doublet <- sen_pre.seurat.filtered[,idx]
 #table(sen_pre.seurat.filtered_doublet@meta.data$DF.classifications_0.25_0.28_370)
 cells.doublet <- colnames(sen_pre.seurat.filtered_doublet)
 
-idx_d <- which(colnames(t47d_repop2) %in% cells.doublet)
-t47d_repop2_nodoublets <- t47d_repop2[,-idx_d]
-t47d_repop2_nodoublets
+idx_d <- which(colnames(t47d_repop_2) %in% cells.doublet)
+t47d_repop_2_nodoublets <- t47d_repop_2[,-idx_d]
+t47d_repop_2_nodoublets
 
 # Doublet statistic
 
 
 d_p_ctr1 = ncol(ctr_1_nodoublets) / ncol(ctr_1)
 d_p_ctr2 = ncol(ctr_2_nodoublets) / ncol(ctr_2)
-d_p_sen1 = ncol(t47d_12nap_1_nodoublets) / ncol(t47d_12nap_1)
-d_p_sen2 = ncol(t47d_12nap_2_nodoublets) / ncol(t47d_12nap_2)
-d_p_repop1 = ncol(t47d_repop1_nodoublets) / ncol(t47d_repop1)
-d_p_repop2 = ncol(t47d_repop2_nodoublets) / ncol(t47d_repop2)
+d_p_sen1 = ncol(t47d_tis_1_nodoublets) / ncol(t47d_tis_1)
+d_p_sen2 = ncol(t47d_tis_2_nodoublets) / ncol(t47d_tis_2)
+d_p_repop1 = ncol(t47d_repop_1_nodoublets) / ncol(t47d_repop_1)
+d_p_repop2 = ncol(t47d_repop_2_nodoublets) / ncol(t47d_repop_2)
 
 df_doublet_stat = data.frame("sample" = c("ctr1", "ctr2", "sen1", "sen2", "repop1", "repop2"), 
                              "Percentage of singulets" = c(d_p_ctr1, d_p_ctr2,d_p_sen1, d_p_sen2, d_p_repop1, d_p_repop2))
@@ -502,7 +489,7 @@ ggplot(data=df_doublet_stat, aes(x=sample, y=Percentage.of.singulets)) +
 
 
 
-t47d_proj <- merge(ctr_1_nodoublets, y = c(ctr_2_nodoublets, t47d_12nap_1_nodoublets, t47d_12nap_2_nodoublets, t47d_repop1_nodoublets, t47d_repop2_nodoublets), add.cell.ids = c("ctr_1", "ctr_2", "12nap_1", "12nap_2","repop1", "repop2"), project = "t47d")
+t47d_proj <- merge(ctr_1_nodoublets, y = c(ctr_2_nodoublets, t47d_tis_1_nodoublets, t47d_tis_2_nodoublets, t47d_repop_1_nodoublets, t47d_repop_2_nodoublets), add.cell.ids = c("T47D_CTR_1", "T47D_CTR_2", "T47D_TIS_1", "T47D_TIS_2","T47D_REPOP_1", "T47D_REPOP_2"), project = "t47d")
 
 
 # QC
@@ -516,16 +503,16 @@ t47d_proj[["percent.rb"]] <- PercentageFeatureSet(t47d_proj, pattern = "^RP[SL]"
 
 
 
-VlnPlot(t47d_proj, split.by = t47d_proj$orig.ident ,features = c("nFeature_RNA"), ncol = 1, pt.size = 0.1) & 
+VlnPlot(t47d_proj, features = c("nFeature_RNA"), ncol = 1, pt.size = 0.1) & 
   theme(plot.title = element_text(size=10))
 
-VlnPlot(t47d_proj, split.by = t47d_proj$orig.ident,features = c("nCount_RNA"),ncol = 1,pt.size = 0.1) & 
+VlnPlot(t47d_proj,features = c("nCount_RNA"),ncol = 1,pt.size = 0.1) & 
   theme(plot.title = element_text(size=10))
 
-VlnPlot(t47d_proj, split.by = t47d_proj$orig.ident,features = c("percent.mt"),ncol = 1,pt.size = 0.1) & 
+VlnPlot(t47d_proj, features = c("percent.mt"),ncol = 1,pt.size = 0.1) & 
   theme(plot.title = element_text(size=10))
 
-VlnPlot(t47d_proj, split.by = t47d_proj$orig.ident,features = c("percent.rb"),ncol = 1,pt.size = 0.1) & 
+VlnPlot(t47d_proj, features = c("percent.rb"),ncol = 1,pt.size = 0.1) & 
   theme(plot.title = element_text(size=10))
 
 
