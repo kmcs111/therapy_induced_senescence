@@ -4,95 +4,23 @@ library(SingleCellExperiment)
 
 #Load data after the QC and filtering steps
 
-mcf7_proj_filtered = readRDS("mcf7_preprocessed.Rds")
+prefix = getwd()
 
-t47d_proj = readRDS("t47d_processed.Rds")
-
-
-t47d_proj[["percent.mt"]] <- PercentageFeatureSet(t47d_proj, pattern = "^MT-")
-
-t47d_proj[["percent.rb"]] <- PercentageFeatureSet(t47d_proj, pattern = "^RP[SL]")
-
-
-t47d_proj_filtered <- subset(t47d_proj, subset = nFeature_RNA > 2000 & nCount_RNA > 4000 & nCount_RNA < 30000 & percent.mt < 10)
-
-mcf7_proj_filtered$orig.ident[which(mcf7_proj_filtered$orig.ident == "ctr_1")] = "MCF7_CTR_1"
-mcf7_proj_filtered$orig.ident[which(mcf7_proj_filtered$orig.ident == "ctr_2")] = "MCF7_CTR_2"
-
-mcf7_proj_filtered$orig.ident[which(mcf7_proj_filtered$orig.ident == "mcf7_12nap_1")] = "MCF7_TIS_1"
-mcf7_proj_filtered$orig.ident[which(mcf7_proj_filtered$orig.ident == "mcf7_12nap_2")] = "MCF7_TIS_2"
-
-mcf7_proj_filtered$orig.ident[which(mcf7_proj_filtered$orig.ident == "mcf7_repop1")] = "MCF7_REPOP_1"
-mcf7_proj_filtered$orig.ident[which(mcf7_proj_filtered$orig.ident == "mcf7_repop2")] = "MCF7_REPOP_2"
-
-mcf7_proj_filtered$cond[which(mcf7_proj_filtered$cond == "ctr")] = "MCF7_CTR"
-
-mcf7_proj_filtered$cond[which(mcf7_proj_filtered$cond == "12n")] = "MCF7_TIS"
-
-mcf7_proj_filtered$cond[which(mcf7_proj_filtered$cond == "rep")] = "MCF7_REPOP"
-
-
-mcf7_proj_filtered <- subset(mcf7_proj_filtered, subset = percent.rb > 0.05)
-
-mcf7_proj_filtered = JoinLayers(mcf7_proj_filtered)
-counts <- GetAssayData(mcf7_proj_filtered, assay = "RNA")
-
-idx = which(rownames(counts) == "MALAT1")
-counts <- counts[-c(idx),]
-mcf7_proj_filtered <- subset(mcf7_proj_filtered, features = rownames(counts))
-
-genes = rownames(counts) 
-genes = genes[grep("^MT", genes, invert=TRUE)]
-mcf7_proj_filtered <- subset(mcf7_proj_filtered, features = genes)
-
-# we need to redefine the mito_genes since they were first 
-# calculated on the full object before removing low expressed genes.
-
-
-t47d_proj_filtered$orig.ident[which(t47d_proj_filtered$orig.ident == "ctr_1")] = "T47D_CTR_1"
-t47d_proj_filtered$orig.ident[which(t47d_proj_filtered$orig.ident == "ctr_2")] = "T47D_CTR_2"
-
-t47d_proj_filtered$orig.ident[which(t47d_proj_filtered$orig.ident == "t47d_sen_1")] = "T47D_TIS_1"
-t47d_proj_filtered$orig.ident[which(t47d_proj_filtered$orig.ident == "t47d_sen_2")] = "T47D_TIS_2"
-
-t47d_proj_filtered$orig.ident[which(t47d_proj_filtered$orig.ident == "t47d_repop1")] = "T47D_REPOP_1"
-t47d_proj_filtered$orig.ident[which(t47d_proj_filtered$orig.ident == "t47d_repop2")] = "T47D_REPOP_2"
-
-
-
-
-t47d_proj_filtered$cond =  t47d_proj_filtered$orig.ident
-
-t47d_proj_filtered$cond[which(t47d_proj_filtered$cond == "T47D_CTR_1")] = "T47D_CTR"
-t47d_proj_filtered$cond[which(t47d_proj_filtered$cond == "T47D_CTR_2")] = "T47D_CTR"
-
-t47d_proj_filtered$cond[which(t47d_proj_filtered$cond == "T47D_TIS_1")] = "T47D_TIS"
-t47d_proj_filtered$cond[which(t47d_proj_filtered$cond == "T47D_TIS_2")] = "T47D_TIS"
-
-t47d_proj_filtered$cond[which(t47d_proj_filtered$cond == "T47D_REPOP_1")] = "T47D_REPOP"
-t47d_proj_filtered$cond[which(t47d_proj_filtered$cond == "T47D_REPOP_2")] = "T47D_REPOP"
-
-
-
-
+mcf7_proj_filtered = readRDS( paste0(prefix, "/mcf7_filtered.Rds"))
+t47d_proj_filtered = readRDS( paste0(prefix, "/t47d_filtered.Rds"))
 
 sen_merged <- merge(mcf7_proj_filtered, y = c(t47d_proj_filtered), add.cell.ids = c("MCF7", "T47D"), project = "sen")
-
-
 
 sen_merged = JoinLayers(sen_merged)
 
 sen_merged <- NormalizeData(sen_merged, normalization.method = "LogNormalize", scale.factor = 10000)
 
-
 sen_merged <- FindVariableFeatures(sen_merged, selection.method = "vst", nfeatures = 2000)
-
 
 all.genes <- rownames(sen_merged)
 sen_merged <- ScaleData(sen_merged, features = all.genes)
 
 sen_merged <- RunPCA(sen_merged, features = VariableFeatures(object = sen_merged))
-
 
 ElbowPlot(sen_merged, reduction = "pca")
 
@@ -100,17 +28,17 @@ sen_merged <- FindNeighbors(sen_merged, dims = 1:15, reduction = "pca")
 
 sen_merged <- FindClusters(sen_merged, resolution = 0.5, reduction = "pca")
 
-
 sen_merged <- RunUMAP(sen_merged, dims = 1:15, verbose = F, reduction = "pca")
 
 table(sen_merged@meta.data$seurat_clusters)
 
+sen_merged$cond = sen_merged$orig.ident
+sen_merged$cond = gsub("_1", "", sen_merged$cond)
+sen_merged$cond = gsub("_2", "", sen_merged$cond)
 
+d = DimPlot(sen_merged, label=F, group.by="cond", reduction = "umap", cols = c("T47D_CTR" = "#7d6740", "T47D_TIS" = '#9c0101', "T47D_REPOP" = "#CCCE8F","MCF7_CTR" = "#8f7a54", "MCF7_TIS" = '#cf0101', "MCF7_REPOP" = "#4f3821"))
 
-d = DimPlot(sen_merged, label=F, group.by="cond", reduction = "umap", cols = c("T47D_CTR" = "#2f4858", "T47D_TIS" = '#941253', "T47D_REPOP" = "#334c73","MCF7_CTR" = "#564a85", "MCF7_TIS" = '#ce0d40', "MCF7_REPOP" = "#873c84"))
-
-
-png("t47dmcf7_umap", width = 8, height = 6, units = 'in', res = 720)
+png("t47dmcf7_umap_combined.png", width = 8, height = 6, units = 'in', res = 720)
 d & 
   theme(text = element_text( size = 25),
         axis.text.x=element_text( size=25),
