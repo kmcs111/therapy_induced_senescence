@@ -36,7 +36,7 @@ sen_merged$cond = sen_merged$orig.ident
 sen_merged$cond = gsub("_1", "", sen_merged$cond)
 sen_merged$cond = gsub("_2", "", sen_merged$cond)
 
-d = DimPlot(sen_merged, label=F, group.by="cond", reduction = "umap", cols = c("T47D_CTR" = "#7d6740", "T47D_TIS" = '#9c0101', "T47D_REPOP" = "#CCCE8F","MCF7_CTR" = "#8f7a54", "MCF7_TIS" = '#cf0101', "MCF7_REPOP" = "#4f3821"))
+d = DimPlot(sen_merged, label=F, group.by="cond", reduction = "umap", cols = c("T47D_CTR" = "#635e53", "T47D_TIS" = '#9c0101', "T47D_REPOP" = "#CCCE8F","MCF7_CTR" = "#8f7a54", "MCF7_TIS" = '#cf0101', "MCF7_REPOP" = "#4f3821"))
 
 png("t47dmcf7_umap_combined.png", width = 8, height = 6, units = 'in', res = 720)
 d & 
