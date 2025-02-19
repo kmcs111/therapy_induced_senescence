@@ -149,8 +149,8 @@ cds <- learn_graph(cds, use_partition = FALSE)
 
 
 
-get_earliest_principal_node <- function(cds, time_bin="2"){
-  cell_ids <- which(colData(cds)[, "ident"] == 2)
+get_earliest_principal_node <- function(cds, time_bin="4"){
+  cell_ids <- which(colData(cds)[, "ident"] == 4)
   
   closest_vertex <-
     cds@principal_graph_aux[["UMAP"]]$pr_graph_cell_proj_closest_vertex
